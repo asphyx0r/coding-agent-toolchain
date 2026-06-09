@@ -1,0 +1,62 @@
+# This file is used by "git commit" to auto-populate the commit message template:
+#   git config commit.template .gitmessage
+#   git commit --template=.gitmessage
+
+
+# === Summary (required) ===
+# Short imperative sentence, max 50 characters.
+# Do not end the subject line with a period
+# No more than 50 chars. #### 50 chars is here:  #
+# Separate subject from body with a blank line
+# Examples:
+#   Fix crash on empty configuration
+#   Add REST endpoint for user deletion
+#   Update SQL migrations for v2 schema
+
+<summary>
+
+
+# === Description (optional but recommended) ===
+# Describe the context, rationale, and solution.
+# Explain *what* and *why* (not *how*). Include related issue or
+# task ID when available.
+# Focus on the "why", not just the "what". Max 72 characters per line.
+# Wrap at 72 chars. ################################## which is here:  #
+#
+# Example:
+#   The previous loader crashed when the config file was empty.
+#   Added guard clauses and default values to ensure stability.
+
+<description>
+
+
+# === Impact (optional) ===
+# Mention side effects, compatibility issues, migrations, etc.
+# Max 72 characters per line.
+# Wrap at 72 chars. ################################## which is here:  #
+#
+# Examples:
+#   No breaking change
+#   Requires DB migration 20251126-add-index.sql
+
+<impact>
+
+
+# === References (optional) ===
+# Link to related issues, tickets, or documents.
+# Max 72 characters per line.
+# Wrap at 72 chars. ################################## which is here:  #
+#
+# Examples:
+#   Refs: PROJ-1289
+#   Fixes: #42
+
+<references>
+
+
+# === Notes for reviewers (optional) ===
+# Anything useful for code review or testing context.
+# Max 72 characters per line.
+# Wrap at 72 chars. ################################## which is here:  #
+
+<review notes>

@@ -1,0 +1,157 @@
+schema_version: 1
+tools:
+  - id: yamllint
+    executable: yamllint
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: pip
+        package: yamllint
+      linux:
+        kind: pip
+        package: yamllint
+
+  - id: shfmt
+    executable: shfmt
+    version_args:
+      - -version
+    installers:
+      windows:
+        kind: direct_binary
+        url: 'https://github.com/patrickvane/shfmt/releases/download/master/shfmt_windows_amd64.exe'
+        file_name: shfmt.exe
+      linux:
+        kind: direct_binary
+        url: 'https://github.com/patrickvane/shfmt/releases/download/master/shfmt_linux_amd64'
+        file_name: shfmt
+
+  - id: markdownlint
+    executable: markdownlint
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: npm_global
+        package: markdownlint-cli
+      linux:
+        kind: npm_global
+        package: markdownlint-cli
+
+  - id: imagemagick
+    executable: magick
+    version_args:
+      - -version
+    installers:
+      windows:
+        kind: portable_archive
+        owner: ImageMagick
+        repo: ImageMagick
+        asset_pattern: 'ImageMagick-[0-9.]+-[0-9]+-portable-Q16-x64[.]7z'
+        executable: magick.exe
+        install_dir_name: imagemagick
+        bin_path: .
+        archive_kind: seven_zip
+      linux:
+        kind: appimage_extract
+        owner: ImageMagick
+        repo: ImageMagick
+        asset_pattern: 'ImageMagick-.*-gcc-x86_64[.]AppImage'
+        file_name: magick
+
+  - id: ghostscript
+    executable: gs
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: direct_installer
+        owner: ArtifexSoftware
+        repo: ghostpdl-downloads
+        asset_pattern: 'gs[0-9]+w64[.]exe'
+        executable: gswin64c
+        install_args: /S
+        target_arg_prefix: /D=
+        install_dir_name: ghostscript
+        bin_path: bin
+      linux:
+        kind: source_make
+        owner: ArtifexSoftware
+        repo: ghostpdl-downloads
+        asset_pattern: 'ghostscript-[0-9.]+[.]tar[.]xz'
+        source_dir: 'ghostscript-*'
+        package: ghostscript
+        install_dir_name: ghostscript
+        bin_path: bin
+
+  - id: shellcheck
+    executable: shellcheck
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: direct_binary
+        url: 'https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.zip'
+        file_name: shellcheck.exe
+        archive_kind: zip
+        archive_path: shellcheck.exe
+      linux:
+        kind: direct_binary
+        url: 'https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.linux.x86_64.tar.xz'
+        file_name: shellcheck
+        archive_kind: tar_xz
+        archive_path: shellcheck-stable/shellcheck
+
+  - id: sqlfluff
+    executable: sqlfluff
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: pip
+        package: sqlfluff
+      linux:
+        kind: pip
+        package: sqlfluff
+
+  - id: github-cli
+    executable: gh
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: github_release_asset
+        owner: cli
+        repo: cli
+        asset_pattern: 'gh_[0-9.]+_windows_amd64[.]zip'
+        file_name: gh.exe
+        archive_kind: zip
+      linux:
+        kind: github_release_asset
+        owner: cli
+        repo: cli
+        asset_pattern: 'gh_[0-9.]+_linux_amd64[.]tar[.]gz'
+        file_name: gh
+        archive_kind: tar_gz
+
+  - id: ruff
+    executable: ruff
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: pip
+        package: ruff
+      linux:
+        kind: pip
+        package: ruff
+
+  - id: psscriptanalyzer
+    executable: Invoke-ScriptAnalyzer
+    installers:
+      windows:
+        kind: powershell_gallery
+        package: PSScriptAnalyzer
+      linux:
+        kind: powershell_gallery
+        package: PSScriptAnalyzer

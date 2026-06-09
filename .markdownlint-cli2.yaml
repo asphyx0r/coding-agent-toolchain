@@ -1,0 +1,263 @@
+config:
+  default: true
+
+  MD001:
+    front_matter_title: "^\\s*title\\s*[:=]"
+  MD003:
+    style: atx
+  MD004:
+    style: dash
+  MD005: true
+  MD007:
+    indent: 2
+    start_indented: false
+    start_indent: 2
+  MD009:
+    br_spaces: 0
+    code_blocks: false
+    list_item_empty_lines: false
+    strict: true
+  MD010:
+    code_blocks: false
+    ignore_code_languages: []
+    spaces_per_tab: 2
+  MD011: true
+  MD012:
+    maximum: 1
+  MD013:
+    line_length: 120
+    code_blocks: false
+    code_block_line_length: 120
+    headings: false
+    heading_line_length: 120
+    stern: true
+    strict: false
+    tables: false
+  MD014: true
+  MD018: true
+  MD019: true
+  MD020: true
+  MD021: true
+  MD022:
+    lines_above: 1
+    lines_below: 1
+  MD023: true
+  MD024:
+    siblings_only: true
+  MD025:
+    front_matter_title: "^\\s*title\\s*[:=]"
+    level: 1
+  MD026:
+    punctuation: ".,;:!"
+  MD027:
+    list_items: true
+  MD028: true
+  MD029:
+    style: ordered
+  MD030:
+    ul_single: 1
+    ul_multi: 1
+    ol_single: 1
+    ol_multi: 1
+  MD031:
+    list_items: true
+  MD032: true
+  MD033:
+    allowed_elements: []
+    table_allowed_elements: []
+  MD034: true
+  MD035:
+    style: "---"
+  MD036:
+    punctuation: ".,;:!?"
+  MD037: true
+  MD038: true
+  MD039: true
+  MD040:
+    allowed_languages: []
+    language_only: true
+  MD041:
+    allow_preamble: false
+    front_matter_title: "^\\s*title\\s*[:=]"
+    level: 1
+  MD042: true
+  MD043: false
+  MD045: true
+  MD046:
+    style: fenced
+  MD047: true
+  MD048:
+    style: backtick
+  MD049:
+    style: asterisk
+  MD050:
+    style: asterisk
+  MD051:
+    ignore_case: false
+    ignored_pattern: ""
+  MD052:
+    ignored_labels:
+      - x
+    shortcut_syntax: false
+  MD053:
+    ignored_definitions:
+      - "//"
+  MD054:
+    autolink: true
+    inline: true
+    full: false
+    collapsed: false
+    shortcut: false
+    url_inline: false
+  MD055:
+    style: leading_and_trailing
+  MD056: true
+  MD058: true
+  MD059:
+    prohibited_texts:
+      - click here
+      - here
+      - link
+      - more
+      - cliquez ici
+      - ici
+      - lien
+      - plus
+      - en savoir plus
+      - voir plus
+      - lire la suite
+  MD060:
+    style: compact
+    aligned_delimiter: false
+
+  # MD044 is intentionally broad because these rules discuss many languages,
+  # tools, and documentation sources. Keep it explicit so capitalization
+  # changes stay reviewable.
+  # Keep this item last due to length.
+  MD044:
+    code_blocks: false
+    html_elements: false
+    names:
+      - "Akismet"
+      - "Alertmanager"
+      - "AlmaLinux"
+      - "API"
+      - "Asana"
+      - "Auth0"
+      - "Azure"
+      - "Bamboo"
+      - "Bitbucket"
+      - "Bugzilla"
+      - "CAS"
+      - "CentOS"
+      - "Consul"
+      - "Debian"
+      - "DevOps"
+      - "Docker"
+      - "DockerSlim"
+      - "Elasticsearch"
+      - "Facebook"
+      - "fastlane"
+      - "fluent-plugin-redis-slowlog"
+      - "GDK"
+      - "Geo"
+      - "Git LFS"
+      - "git-annex"
+      - "git-credential-oauth"
+      - "git-sizer"
+      - "Git"
+      - "Gitaly"
+      - "GitHub"
+      - "gitlab-duo"
+      - "gitlab.vim"
+      - "GitLab chart"
+      - "GitLab Geo"
+      - "GitLab Monitor"
+      - "GitLab Operator"
+      - "GitLab Pages"
+      - "GitLab Rails"
+      - "GitLab Runner"
+      - "GitLab Shell"
+      - "GitLab Workhorse"
+      - "GitLab"
+      - "Gitleaks"
+      - "Gmail"
+      - "Google"
+      - "Grafana"
+      - "Gzip"
+      - "Helm"
+      - "HipChat"
+      - "ID"
+      - "IP"
+      - "Ingress"
+      - "jasmine-jquery"
+      - "JavaScript"
+      - "Jaeger"
+      - "Jenkins"
+      - "Jira"
+      - "Jira Cloud"
+      - "Jira Server"
+      - "jQuery"
+      - "JSON"
+      - "JupyterHub"
+      - "Karma"
+      - "Kerberos"
+      - "Knative"
+      - "Kubernetes"
+      - "LDAP"
+      - "Let's Encrypt"
+      - "Markdown"
+      - "markdownlint"
+      - "Mattermost"
+      - "Microsoft"
+      - "minikube"
+      - "MinIO"
+      - "ModSecurity"
+      - "Neovim"
+      - "NGINX Ingress"
+      - "NGINX"
+      - "OAuth"
+      - "OAuth 2"
+      - "OmniAuth"
+      - "OpenID"
+      - "OpenShift"
+      - "PgBouncer"
+      - "PostgreSQL"
+      - "PowerShell"
+      - "Praefect"
+      - "Prometheus"
+      - "Puma"
+      - "puma-worker-killer"
+      - "Python"
+      - "Rake"
+      - "Redis"
+      - "Redmine"
+      - "reCAPTCHA"
+      - "Ruby"
+      - "runit"
+      - "Salesforce"
+      - "SAML"
+      - "Sendmail"
+      - "Sentry"
+      - "Service Desk"
+      - "Sidekiq"
+      - "Shibboleth"
+      - "Slack"
+      - "SMTP"
+      - "SpotBugs"
+      - "SSH"
+      - "Tiller"
+      - "Tiptap"
+      - "TOML"
+      - "Trello"
+      - "Trello Power-Ups"
+      - "TypeScript"
+      - "Twitter"
+      - "Ubuntu"
+      - "Ultra Auth"
+      - "Unicorn"
+      - "unicorn-worker-killer"
+      - "URL"
+      - "WebdriverIO"
+      - "YAML"
+      - "YouTrack"
