@@ -237,7 +237,7 @@ yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml
 ## Versioning
 
 Scripts report the internal version that matches the current release tag. For
-this release, the internal script version is `v1.0.0`. `CHANGELOG.md` uses tag
+this release, the internal script version is `v1.1.0`. `CHANGELOG.md` uses tag
 sections for release entries.
 
 ## Contributing

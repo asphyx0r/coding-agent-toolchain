@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.1.0
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| e45af6e | Isolate tool installs by platform | asphyx |
+
 ## v1.0.0
 
 | References | Description | Author(s) |
