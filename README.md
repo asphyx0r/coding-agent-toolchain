@@ -44,8 +44,9 @@ Use `-h` or `--help` to print the script version and help.
 ## Features
 
 - Checks and installs these validation tools: `yamllint`, `shfmt`,
-  `markdownlint`, ImageMagick, Ghostscript, `shellcheck`, `sqlfluff`,
-  GitHub CLI, `ruff`, and PSScriptAnalyzer.
+  `yq`, `jq`, `markdownlint-cli2`, `commitlint`, ImageMagick, Ghostscript,
+  `shellcheck`, `sqlfluff`, `pre-commit`, Gitleaks, `betterleaks`,
+  GitHub CLI, `ruff`, `editorconfig-checker`, and PSScriptAnalyzer.
 - Supports declarative installer kinds for `winget`, `npm`, Chocolatey,
   `brew`, `pip`, PowerShell Gallery modules, conda-forge packages through
   user-scoped micromamba, direct binaries, portable archives, extracted
@@ -93,21 +94,53 @@ is skipped, the removal summary reports the reason in the `Version` column.
 | Program | Source repository |
 | --- | --- |
 | `yamllint` | [adrienverge/yamllint](https://github.com/adrienverge/yamllint) |
+| `yq` | [mikefarah/yq](https://github.com/mikefarah/yq) |
+| `jq` | [jqlang/jq](https://github.com/jqlang/jq) |
 | `shfmt` | [patrickvane/shfmt](https://github.com/patrickvane/shfmt) |
-| `markdownlint` | [DavidAnson/markdownlint](https://github.com/DavidAnson/markdownlint) |
+| `markdownlint-cli2` | [DavidAnson/markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2) |
+| `commitlint` | [conventional-changelog/commitlint](https://github.com/conventional-changelog/commitlint) |
 | ImageMagick | [ImageMagick/ImageMagick](https://github.com/ImageMagick/ImageMagick) |
 | Ghostscript | [ArtifexSoftware/ghostpdl](https://github.com/ArtifexSoftware/ghostpdl) |
 | `shellcheck` | [koalaman/shellcheck](https://github.com/koalaman/shellcheck) |
 | `sqlfluff` | [sqlfluff/sqlfluff](https://github.com/sqlfluff/sqlfluff) |
+| `pre-commit` | [pre-commit/pre-commit](https://github.com/pre-commit/pre-commit) |
+| Gitleaks | [Gitleaks/Gitleaks](https://github.com/gitleaks/gitleaks) |
+| `betterleaks` | [betterleaks/betterleaks](https://github.com/betterleaks/betterleaks) |
 | GitHub CLI | [cli/cli](https://github.com/cli/cli) |
 | `ruff` | [astral-sh/ruff](https://github.com/astral-sh/ruff) |
+| `editorconfig-checker` | [editorconfig-checker/editorconfig-checker](https://github.com/editorconfig-checker/editorconfig-checker) |
 | PSScriptAnalyzer | [PowerShell/PSScriptAnalyzer](https://github.com/PowerShell/PSScriptAnalyzer) |
 
 ## Configuration
 
-The tool list is stored in `config/tools.yaml`. The manifest is declarative:
-entries select supported installer kinds instead of embedding arbitrary shell
-commands.
+The tool list is stored in `config/tools.yaml`, which is the canonical source
+for installed tools. The manifest is declarative: entries select supported
+installer kinds instead of embedding arbitrary shell commands.
+
+The manifest schema is intentionally small:
+
+- `schema_version` must be `1`.
+- `tools` is an ordered list of tool definitions.
+- each tool defines `id`, `executable`, and `installers`.
+- `version_args` defines the executable arguments used for version checks when
+  the installer does not have a dedicated version lookup.
+- `installers` can define `windows` and `linux` blocks. Each platform block
+  uses a `kind` plus the fields required by that installer kind.
+
+Supported installer kinds are `winget`, `npm_global`, `chocolatey`, `brew`,
+`pip`, `python_user`, `uv_tool`, `powershell_gallery`, `conda_forge`,
+`direct_binary`, `portable_archive`, `appimage_extract`,
+`github_release_asset`, `direct_installer`, and `source_make`.
+
+Common installer fields include `package`, `url`, `owner`, `repo`,
+`asset_pattern`, `file_name`, `archive_kind`, `archive_path`, `executable`,
+`install_dir_name`, `bin_path`, `source_dir`, `install_args`, and
+`target_arg_prefix`. Unsupported fields are rejected by the scripts.
+
+The manifest intentionally uses current upstream sources for some installers,
+including `latest`, `stable`, and latest GitHub release assets. This project
+optimizes for bootstrapping current validation tools, not for reproducible
+pinned tool versions.
 
 ## Verification
 
@@ -122,6 +155,12 @@ committing:
 markdownlint-cli2 "**/*.md"
 yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml
 ```
+
+## Versioning
+
+Before the first release tag, scripts may report `v0.0.0`. The final script
+version is updated when creating the Git tag. `CHANGELOG.md` remains tag-based
+and can stay without release entries until a tag exists.
 
 ## Contributing
 

@@ -12,6 +12,34 @@ tools:
         kind: pip
         package: yamllint
 
+  - id: yq
+    executable: yq
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: direct_binary
+        url: 'https://github.com/mikefarah/yq/releases/latest/download/yq_windows_amd64.exe'
+        file_name: yq.exe
+      linux:
+        kind: direct_binary
+        url: 'https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64'
+        file_name: yq
+
+  - id: jq
+    executable: jq
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: direct_binary
+        url: 'https://github.com/jqlang/jq/releases/latest/download/jq-windows-amd64.exe'
+        file_name: jq.exe
+      linux:
+        kind: direct_binary
+        url: 'https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64'
+        file_name: jq
+
   - id: shfmt
     executable: shfmt
     version_args:
@@ -26,17 +54,29 @@ tools:
         url: 'https://github.com/patrickvane/shfmt/releases/download/master/shfmt_linux_amd64'
         file_name: shfmt
 
-  - id: markdownlint
-    executable: markdownlint
+  - id: markdownlint-cli2
+    executable: markdownlint-cli2
     version_args:
       - --version
     installers:
       windows:
         kind: npm_global
-        package: markdownlint-cli
+        package: markdownlint-cli2
       linux:
         kind: npm_global
-        package: markdownlint-cli
+        package: markdownlint-cli2
+
+  - id: commitlint
+    executable: commitlint
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: npm_global
+        package: '@commitlint/cli'
+      linux:
+        kind: npm_global
+        package: '@commitlint/cli'
 
   - id: imagemagick
     executable: magick
@@ -114,6 +154,58 @@ tools:
         kind: pip
         package: sqlfluff
 
+  - id: pre-commit
+    executable: pre-commit
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: pip
+        package: pre-commit
+      linux:
+        kind: pip
+        package: pre-commit
+
+  - id: gitleaks
+    executable: gitleaks
+    version_args:
+      - version
+    installers:
+      windows:
+        kind: github_release_asset
+        owner: gitleaks
+        repo: gitleaks
+        asset_pattern: 'gitleaks_[0-9.]+_windows_x64[.]zip'
+        file_name: gitleaks.exe
+        archive_kind: zip
+      linux:
+        kind: github_release_asset
+        owner: gitleaks
+        repo: gitleaks
+        asset_pattern: 'gitleaks_[0-9.]+_linux_x64[.]tar[.]gz'
+        file_name: gitleaks
+        archive_kind: tar_gz
+
+  - id: betterleaks
+    executable: betterleaks
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: github_release_asset
+        owner: betterleaks
+        repo: betterleaks
+        asset_pattern: 'betterleaks_[0-9.]+_windows_x64[.]zip'
+        file_name: betterleaks.exe
+        archive_kind: zip
+      linux:
+        kind: github_release_asset
+        owner: betterleaks
+        repo: betterleaks
+        asset_pattern: 'betterleaks_[0-9.]+_linux_x64[.]tar[.]gz'
+        file_name: betterleaks
+        archive_kind: tar_gz
+
   - id: github-cli
     executable: gh
     version_args:
@@ -145,6 +237,28 @@ tools:
       linux:
         kind: pip
         package: ruff
+
+  - id: editorconfig-checker
+    executable: editorconfig-checker
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: github_release_asset
+        owner: editorconfig-checker
+        repo: editorconfig-checker
+        asset_pattern: 'ec-windows-amd64[.]zip'
+        file_name: editorconfig-checker.exe
+        archive_kind: zip
+        archive_path: bin/ec-windows-amd64.exe
+      linux:
+        kind: github_release_asset
+        owner: editorconfig-checker
+        repo: editorconfig-checker
+        asset_pattern: 'ec-linux-amd64[.]tar[.]gz'
+        file_name: editorconfig-checker
+        archive_kind: tar_gz
+        archive_path: bin/ec-linux-amd64
 
   - id: psscriptanalyzer
     executable: Invoke-ScriptAnalyzer
