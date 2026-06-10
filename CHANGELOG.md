@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.1.1
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| 0189347 | Validate uninstall PATH cleanup | asphyx |
+
 ## v1.1.0
 
 | References | Description | Author(s) |
