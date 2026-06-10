@@ -158,9 +158,9 @@ yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml
 
 ## Versioning
 
-Before the first release tag, scripts may report `v0.0.0`. The final script
-version is updated when creating the Git tag. `CHANGELOG.md` remains tag-based
-and can stay without release entries until a tag exists.
+Scripts report the internal version that matches the current release tag. For
+this release, the internal script version is `v1.0.0`. `CHANGELOG.md` uses tag
+sections for release entries.
 
 ## Contributing
 
