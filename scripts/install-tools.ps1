@@ -1742,6 +1742,68 @@ function Test-DirectoryInPath {
     return $false
 }
 
+function Get-UserPathEntries {
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    if ([string]::IsNullOrWhiteSpace($userPath)) {
+        return @()
+    }
+
+    $separator = [Regex]::Escape([IO.Path]::PathSeparator)
+    return @($userPath -split $separator | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+}
+
+function Test-PathEntryUnderDirectory {
+    param(
+        [AllowNull()]
+        [string]$PathEntry,
+
+        [AllowNull()]
+        [string]$Directory
+    )
+
+    $normalizedEntry = ConvertTo-ComparablePathEntry -Path $PathEntry
+    $normalizedDirectory = ConvertTo-ComparablePathEntry -Path $Directory
+    if ([string]::IsNullOrWhiteSpace($normalizedEntry) -or
+        [string]::IsNullOrWhiteSpace($normalizedDirectory)) {
+        return $false
+    }
+
+    if ([string]::Equals($normalizedEntry, $normalizedDirectory, [StringComparison]::OrdinalIgnoreCase)) {
+        return $true
+    }
+
+    return $normalizedEntry.StartsWith(
+        "$normalizedDirectory$([IO.Path]::DirectorySeparatorChar)",
+        [StringComparison]::OrdinalIgnoreCase
+    )
+}
+
+function Get-ObsoleteUserPathEntries {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object[]]$Results
+    )
+
+    $pathEntries = @(Get-UserPathEntries)
+    $obsoleteEntries = [System.Collections.Generic.List[string]]::new()
+    $seenEntries = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    foreach ($result in $Results) {
+        if ([string]::IsNullOrWhiteSpace($result.RemovedDirectory)) {
+            continue
+        }
+
+        foreach ($pathEntry in $pathEntries) {
+            if ((Test-PathEntryUnderDirectory -PathEntry $pathEntry -Directory $result.RemovedDirectory) -and
+                $seenEntries.Add($pathEntry)) {
+                $obsoleteEntries.Add($pathEntry)
+            }
+        }
+    }
+
+    return $obsoleteEntries.ToArray()
+}
+
 function Get-PathVerificationStatus {
     param(
         [Parameter(Mandatory = $true)]
@@ -1942,6 +2004,7 @@ function Invoke-RemoveMode {
                 Tool = $tool['Id']
                 Status = 'Skipped'
                 Directory = ''
+                RemovedDirectory = ''
                 Version = ''
                 Detail = $detail
             })
@@ -1953,6 +2016,7 @@ function Invoke-RemoveMode {
                 Tool = $tool['Id']
                 Status = 'DryRun'
                 Directory = 'simulated'
+                RemovedDirectory = ''
                 Version = 'simulated'
                 Detail = 'Dry-run: simulated successful removal without modifications.'
             })
@@ -1963,6 +2027,7 @@ function Invoke-RemoveMode {
         $version = ''
         $detail = ''
         $directory = ''
+        $removedDirectory = ''
 
         try {
             $directory = Get-RemovalDisplayDirectory -Tool $tool -Installer $installer
@@ -1977,6 +2042,10 @@ function Invoke-RemoveMode {
             $status = 'Failed'
             if ($PSCmdlet.ShouldProcess($safeDirectory, "Remove marked tool directory for $($tool['Id'])")) {
                 Remove-Item -LiteralPath $safeDirectory -Recurse -Force -ErrorAction Stop
+                if (Test-Path -LiteralPath $safeDirectory) {
+                    throw 'Managed installation directory still exists after removal.'
+                }
+                $removedDirectory = $safeDirectory
                 Remove-PublishedToolCommand -Tool $tool -Installer $installer -ManagedDirectory $safeDirectory
                 $status = 'Removed'
             } else {
@@ -1984,8 +2053,9 @@ function Invoke-RemoveMode {
                 $detail = 'Removal was not confirmed by ShouldProcess.'
             }
         } catch {
+            $errorRecord = $_
             if ([string]::IsNullOrWhiteSpace($detail)) {
-                $detail = $_.Exception.Message
+                $detail = $errorRecord.Exception.Message
             }
             Write-Warning "Tool '$($tool['Id'])' was not removed: $detail"
         }
@@ -1994,6 +2064,7 @@ function Invoke-RemoveMode {
             Tool = $tool['Id']
             Status = $status
             Directory = $directory
+            RemovedDirectory = $removedDirectory
             Version = $version
             Detail = $detail
         })
@@ -2023,8 +2094,17 @@ function Invoke-RemoveMode {
         )
     }
 
+    $obsoletePathEntries = @(Get-ObsoleteUserPathEntries -Results $results)
+    if ($obsoletePathEntries.Count -gt 0) {
+        Write-Output ''
+        Write-Output 'Obsolete PATH entries still present in the current user PATH:'
+        foreach ($obsoletePathEntry in $obsoletePathEntries) {
+            Write-Output "  $obsoletePathEntry"
+        }
+    }
+
     $failedResults = @($results | Where-Object { $_.Status -eq 'Failed' })
-    if ($failedResults.Count -gt 0) {
+    if ($failedResults.Count -gt 0 -or $obsoletePathEntries.Count -gt 0) {
         exit 1
     }
 }

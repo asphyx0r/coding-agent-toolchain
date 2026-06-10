@@ -798,7 +798,7 @@ add_installer_path_entries() {
       return
     elif [[ "${installer_kinds[index]}" == "conda_forge" ]]; then
       bin_path="$(install_directory "${index}")/bin"
-    elif [[ "${installer_kinds[index]}" == "direct_binary" || "${installer_kinds[index]}" == "github_release_asset" ||
+    elif [[ "${installer_kinds[index]}" == "direct_binary" || "${installer_kinds[index]}" == "github_release_asset" || \
       "${installer_kinds[index]}" == "uv_tool" || "${installer_kinds[index]}" == "appimage_extract" ]]; then
       bin_path="$(tool_command_dir "${index}")"
     else
@@ -1917,6 +1917,40 @@ path_contains_directory() {
   return 1
 }
 
+persistent_user_path_entries() {
+  local profile_path="${HOME}/.profile"
+  local marker_prefix="# coding-agent-toolchain PATH: "
+  local line
+
+  [[ -f "${profile_path}" ]] || return 0
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line%$'\r'}"
+    case "${line}" in
+    "${marker_prefix}"*) printf '%s\n' "${line#"${marker_prefix}"}" ;;
+    esac
+  done <"${profile_path}"
+}
+
+normalize_path_text() {
+  local path="$1"
+
+  while [[ "${path}" != "/" && "${path}" == */ ]]; do
+    path="${path%/}"
+  done
+
+  printf '%s' "${path}"
+}
+
+path_entry_references_directory() {
+  local entry
+  local directory
+
+  entry="$(normalize_path_text "$1")"
+  directory="$(normalize_path_text "$2")"
+  [[ -n "${entry}" && -n "${directory}" ]] || return 1
+  [[ "${entry}" == "${directory}" || "${entry}" == "${directory}/"* ]]
+}
+
 path_verification_status() {
   local status="$1"
   local directory="$2"
@@ -2103,6 +2137,7 @@ run_remove_mode() {
   local statuses=()
   local versions=()
   local directories=()
+  local removed_directories=()
   local details=()
   local index
   local tool_count="${#tool_ids[@]}"
@@ -2111,11 +2146,13 @@ run_remove_mode() {
   local validated_directory
   local has_failure=0
   local display_value
+  local obsolete_path_entries=()
 
   for index in "${!tool_ids[@]}"; do
     statuses[index]="Skipped"
     versions[index]=""
     directories[index]=""
+    removed_directories[index]=""
     details[index]=""
 
     log_info "[$((index + 1))/${tool_count}] Checking removal for tool '${tool_ids[index]}'."
@@ -2157,6 +2194,14 @@ run_remove_mode() {
       continue
     fi
 
+    if [[ -e "${validated_directory}" ]]; then
+      statuses[index]="Failed"
+      details[index]="Managed installation directory still exists after removal."
+      has_failure=1
+      continue
+    fi
+
+    removed_directories[index]="${validated_directory}"
     remove_published_tool_command "${index}" "${validated_directory}"
     statuses[index]="Removed"
   done
@@ -2177,6 +2222,37 @@ run_remove_mode() {
       "$(summary_directory "${directories[index]}")" \
       "$(summary_version "${display_value}")"
   done
+
+  for index in "${!tool_ids[@]}"; do
+    [[ "${statuses[index]}" == "Removed" && -n "${removed_directories[index]}" ]] || continue
+
+    while IFS= read -r path_entry; do
+      if ! path_entry_references_directory "${path_entry}" "${removed_directories[index]}"; then
+        continue
+      fi
+
+      local already_listed=0
+      local existing_path_entry
+      for existing_path_entry in "${obsolete_path_entries[@]}"; do
+        if [[ "${existing_path_entry}" == "${path_entry}" ]]; then
+          already_listed=1
+          break
+        fi
+      done
+
+      if ((already_listed == 0)); then
+        obsolete_path_entries+=("${path_entry}")
+      fi
+    done < <(persistent_user_path_entries)
+  done
+
+  if ((${#obsolete_path_entries[@]} > 0)); then
+    printf '\nObsolete PATH entries still present in the user profile:\n'
+    for display_value in "${obsolete_path_entries[@]}"; do
+      printf '  %s\n' "${display_value}"
+    done
+    has_failure=1
+  fi
 
   return "${has_failure}"
 }
@@ -2374,7 +2450,7 @@ main() {
   local display_value
   for index in "${!tool_ids[@]}"; do
     display_value="${versions[index]}"
-    if [[ ("${statuses[index]}" == "Failed" || "${statuses[index]}" == "Missing" ||
+    if [[ ("${statuses[index]}" == "Failed" || "${statuses[index]}" == "Missing" || \
       "${statuses[index]}" == "Skipped") && -n "${details[index]}" ]]; then
       display_value="${details[index]}"
     fi
