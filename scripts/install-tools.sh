@@ -351,6 +351,14 @@ normalize_prefix_root() {
   printf '%s' "${value}"
 }
 
+xdg_data_home() {
+  if [[ -n "${XDG_DATA_HOME:-}" && "${XDG_DATA_HOME}" == /* ]]; then
+    printf '%s' "${XDG_DATA_HOME}"
+  else
+    printf '%s/.local/share' "${HOME}"
+  fi
+}
+
 toolchain_user_root() {
   if [[ -n "${prefix_root}" ]]; then
     if [[ "${prefix_root}" == "/" ]]; then
@@ -361,27 +369,52 @@ toolchain_user_root() {
     return
   fi
 
-  printf '%s/coding-agent-toolchain' "${XDG_DATA_HOME:-${HOME}/.local/share}"
+  printf '%s/coding-agent-toolchain' "$(xdg_data_home)"
+}
+
+toolchain_platform_key() {
+  local machine
+
+  machine="$(uname -m 2>/dev/null || printf 'unknown')"
+  if [[ -z "${machine}" ]]; then
+    machine="unknown"
+  fi
+
+  printf '%s-%s' "${platform_name}" "${machine}"
+}
+
+toolchain_payload_root() {
+  if [[ -n "${prefix_root}" ]]; then
+    toolchain_user_root
+  else
+    printf '%s/tools/%s' "$(toolchain_user_root)" "$(toolchain_platform_key)"
+  fi
 }
 
 tool_binary_dir() {
   local index="$1"
 
+  printf '%s/bin' "$(install_directory "${index}")"
+}
+
+user_command_dir() {
+  printf '%s/.local/bin' "${HOME}"
+}
+
+tool_command_dir() {
+  local index="$1"
+
   if [[ -n "${prefix_root}" ]]; then
-    printf '%s/bin' "$(install_directory "${index}")"
+    tool_binary_dir "${index}"
   else
-    printf '%s/.local/bin' "${HOME}"
+    user_command_dir
   fi
 }
 
 npm_prefix_dir() {
   local index="$1"
 
-  if [[ -n "${prefix_root}" ]]; then
-    install_directory "${index}"
-  else
-    printf '%s/npm' "$(toolchain_user_root)"
-  fi
+  install_directory "${index}"
 }
 
 npm_bin_dir() {
@@ -390,17 +423,40 @@ npm_bin_dir() {
   printf '%s/bin' "$(npm_prefix_dir "${index}")"
 }
 
+npm_command_dir() {
+  local index="$1"
+
+  if [[ -n "${prefix_root}" ]]; then
+    npm_bin_dir "${index}"
+  else
+    user_command_dir
+  fi
+}
+
+uses_published_command() {
+  local index="$1"
+
+  if [[ -n "${prefix_root}" ]]; then
+    return 1
+  fi
+
+  case "${installer_kinds[index]}" in
+  npm_global | direct_binary | github_release_asset | uv_tool | appimage_extract | conda_forge | source_make) return 0 ;;
+  *) return 1 ;;
+  esac
+}
+
 install_directory() {
   local index="$1"
-  local user_root
+  local payload_root
   local directory_name="${installer_install_dir_names[index]:-${tool_ids[index]}}"
 
-  user_root="$(toolchain_user_root)"
-  printf '%s/%s' "${user_root}" "${directory_name}"
+  payload_root="$(toolchain_payload_root)"
+  printf '%s/%s' "${payload_root}" "${directory_name}"
 }
 
 node_install_directory() {
-  printf '%s/node' "$(toolchain_user_root)"
+  printf '%s/node' "$(toolchain_payload_root)"
 }
 
 node_bin_dir() {
@@ -408,11 +464,11 @@ node_bin_dir() {
 }
 
 micromamba_install_directory() {
-  printf '%s/micromamba' "$(toolchain_user_root)"
+  printf '%s/micromamba' "$(toolchain_payload_root)"
 }
 
 micromamba_root_prefix() {
-  printf '%s/micromamba-root' "$(toolchain_user_root)"
+  printf '%s/micromamba-root' "$(toolchain_payload_root)"
 }
 
 micromamba_bin_path() {
@@ -485,7 +541,9 @@ install_marker_directory() {
     ;;
   pip | python_user)
     install_dir="$(install_directory "${index}")"
-    if [[ -z "${executable_directory}" ]]; then
+    if [[ -e "$(python_tool_bin_dir "${index}")/$(tool_executable "${index}")" ]]; then
+      printf '%s' "${install_dir}"
+    elif [[ -z "${executable_directory}" ]]; then
       printf '%s' "${install_dir}"
     else
       case "${executable_directory%/}/" in
@@ -495,11 +553,7 @@ install_marker_directory() {
     fi
     ;;
   direct_binary | github_release_asset | uv_tool)
-    if [[ -n "${prefix_root}" ]]; then
-      install_directory "${index}"
-    else
-      printf '%s' "${executable_directory%/}"
-    fi
+    install_directory "${index}"
     ;;
   *)
     printf '%s' "${executable_directory%/}"
@@ -514,6 +568,121 @@ write_install_marker_for_tool() {
 
   marker_directory="$(install_marker_directory "${index}" "${executable_directory}")"
   write_install_marker "${marker_directory}"
+}
+
+is_toolchain_managed_path() {
+  local path="$1"
+  local root
+
+  root="$(toolchain_user_root)"
+  case "${path}" in
+  "${root%/}/"*) return 0 ;;
+  *) return 1 ;;
+  esac
+}
+
+publish_tool_command() {
+  local index="$1"
+  local target_path="$2"
+  local command_name
+  local command_dir
+  local link_path
+  local existing_target
+
+  if [[ -n "${prefix_root}" ]]; then
+    return 0
+  fi
+
+  command_name="$(tool_executable "${index}")"
+  command_dir="$(user_command_dir)"
+  link_path="${command_dir}/${command_name}"
+  ensure_directory "${command_dir}"
+
+  if [[ -e "${link_path}" && ! -L "${link_path}" ]]; then
+    log_error "Cannot publish '${command_name}' because '${link_path}' already exists and is not a symlink."
+    return 1
+  fi
+
+  if [[ -L "${link_path}" ]]; then
+    existing_target="$(readlink "${link_path}")" || {
+      log_error "Cannot inspect existing command link '${link_path}'."
+      return 1
+    }
+    if ! is_toolchain_managed_path "${existing_target}"; then
+      log_error "Cannot replace unmanaged command link '${link_path}'."
+      return 1
+    fi
+    if ! rm -f -- "${link_path}"; then
+      log_error "Cannot replace existing command link '${link_path}'."
+      return 1
+    fi
+  fi
+
+  log_verbose "Publishing command '${command_name}' at '${link_path}'."
+  ln -s "${target_path}" "${link_path}"
+}
+
+publish_installer_command() {
+  local index="$1"
+  local install_dir
+  local bin_path
+  local target_path
+
+  if [[ -n "${prefix_root}" ]]; then
+    return 0
+  fi
+
+  install_dir="$(install_directory "${index}")"
+  if [[ -z "${installer_bin_paths[index]}" ]]; then
+    bin_path="${install_dir}/bin"
+  elif [[ "${installer_bin_paths[index]}" == "." ]]; then
+    bin_path="${install_dir}"
+  else
+    bin_path="${install_dir}/${installer_bin_paths[index]}"
+  fi
+
+  target_path="${bin_path}/$(tool_executable "${index}")"
+  if [[ ! -e "${target_path}" ]]; then
+    log_error "Installer for '${tool_ids[index]}' did not create expected command '${target_path}'."
+    return 1
+  fi
+
+  publish_tool_command "${index}" "${target_path}"
+}
+
+remove_published_tool_command() {
+  local index="$1"
+  local managed_directory="$2"
+  local command_name
+  local link_path
+  local existing_target
+
+  if [[ -n "${prefix_root}" ]]; then
+    return 0
+  fi
+
+  command_name="$(tool_executable "${index}")"
+  link_path="$(user_command_dir)/${command_name}"
+  if [[ ! -L "${link_path}" ]]; then
+    return 0
+  fi
+
+  existing_target="$(readlink "${link_path}")" || {
+    log_warning "Could not inspect command link '${link_path}'. Leaving it in place."
+    return 0
+  }
+
+  case "${existing_target}" in
+  "${managed_directory%/}/"*)
+    log_verbose "Removing command link '${link_path}'."
+    if ! rm -f -- "${link_path}"; then
+      log_warning "Could not remove command link '${link_path}'."
+    fi
+    ;;
+  *)
+    log_verbose "Leaving command link '${link_path}' because it does not point into '${managed_directory}'."
+    ;;
+  esac
 }
 
 is_windows_interop_path() {
@@ -604,7 +773,11 @@ add_installer_path_entries() {
 
   if [[ -z "${installer_bin_paths[index]}" ]]; then
     if [[ "${installer_kinds[index]}" == "pip" || "${installer_kinds[index]}" == "python_user" ]]; then
-      bin_path="$(python_tool_bin_dir "${index}")"
+      if [[ -n "${prefix_root}" ]]; then
+        bin_path="$(python_tool_bin_dir "${index}")"
+      else
+        bin_path="$(user_command_dir)"
+      fi
       add_installer_path_entry "${index}" "${mode}" "${bin_path}" "installer bin path"
 
       if [[ -n "${prefix_root}" ]]; then
@@ -619,15 +792,15 @@ add_installer_path_entries() {
       fi
       return
     elif [[ "${installer_kinds[index]}" == "npm_global" ]]; then
-      bin_path="$(npm_bin_dir "${index}")"
+      bin_path="$(npm_command_dir "${index}")"
       add_installer_path_entry "${index}" "${mode}" "${bin_path}" "npm global bin path"
       add_installer_path_entry "${index}" "${mode}" "$(node_bin_dir)" "Node.js bin path"
       return
     elif [[ "${installer_kinds[index]}" == "conda_forge" ]]; then
       bin_path="$(install_directory "${index}")/bin"
     elif [[ "${installer_kinds[index]}" == "direct_binary" || "${installer_kinds[index]}" == "github_release_asset" ||
-      "${installer_kinds[index]}" == "appimage_extract" ]]; then
-      bin_path="$(tool_binary_dir "${index}")"
+      "${installer_kinds[index]}" == "uv_tool" || "${installer_kinds[index]}" == "appimage_extract" ]]; then
+      bin_path="$(tool_command_dir "${index}")"
     else
       log_verbose "Installer for '${tool_ids[index]}' does not declare an additional bin_path."
       return
@@ -639,6 +812,10 @@ add_installer_path_entries() {
     else
       bin_path="${install_dir}/${installer_bin_paths[index]}"
     fi
+  fi
+
+  if uses_published_command "${index}"; then
+    bin_path="$(user_command_dir)"
   fi
 
   add_installer_path_entry "${index}" "${mode}" "${bin_path}" "installer bin path"
@@ -682,17 +859,17 @@ download_file() {
 prepare_user_paths() {
   local index="${1:-0}"
   local bin_dir
+  local command_dir
   local npm_prefix
-  local npm_bin
 
   bin_dir="$(tool_binary_dir "${index}")"
+  command_dir="$(tool_command_dir "${index}")"
   npm_prefix="$(npm_prefix_dir "${index}")"
-  npm_bin="$(npm_bin_dir "${index}")"
   ensure_directory "${bin_dir}"
+  ensure_directory "${command_dir}"
   ensure_directory "${npm_prefix}"
-  log_verbose "Prepared user bin directory '${bin_dir}' and npm prefix '${npm_prefix}'."
-  add_user_path_entry "${bin_dir}"
-  add_user_path_entry "${npm_bin}"
+  log_verbose "Prepared tool bin directory '${bin_dir}', command directory '${command_dir}', and npm prefix '${npm_prefix}'."
+  add_user_path_entry "${command_dir}"
 }
 
 github_release_asset_url() {
@@ -927,9 +1104,15 @@ install_python_user_tool() {
 
   if ((venv_created)) && [[ -x "${venv_python}" ]] &&
     "${venv_python}" -m pip --version >/dev/null 2>&1; then
-    add_user_path_entry "${scripts_dir}"
+    if [[ -n "${prefix_root}" ]]; then
+      add_user_path_entry "${scripts_dir}"
+    else
+      ensure_directory "$(user_command_dir)"
+      add_user_path_entry "$(user_command_dir)"
+    fi
     log_verbose "Running command: ${venv_python} -m pip install --quiet ${package}"
     "${venv_python}" -m pip install --quiet "${package}"
+    publish_installer_command "${index}" || return 1
     return
   fi
 
@@ -1138,6 +1321,7 @@ install_npm_global_tool() {
   local node_command_path
   local npm_command_path
   local npm_prefix
+  local target_path
 
   package="$(require_installer_value "${installer_packages[index]}" "package" "${tool_ids[index]}")"
   npm_prefix="$(npm_prefix_dir "${index}")"
@@ -1164,15 +1348,24 @@ install_npm_global_tool() {
     log_error "npm failed to install package '${package}' for tool '${tool_ids[index]}'."
     return 1
   fi
+
+  target_path="$(npm_bin_dir "${index}")/$(tool_executable "${index}")"
+  if [[ ! -e "${target_path}" ]]; then
+    log_error "npm package '${package}' did not create expected command '${target_path}'."
+    return 1
+  fi
+  publish_tool_command "${index}" "${target_path}"
 }
 
 install_uv_tool() {
   local index="$1"
   local package
   local bin_dir
+  local target_path
 
   package="$(require_installer_value "${installer_packages[index]}" "package" "${tool_ids[index]}")"
   bin_dir="$(tool_binary_dir "${index}")"
+  target_path="${bin_dir}/$(tool_executable "${index}")"
 
   if ! command -v uv >/dev/null 2>&1; then
     log_error "Tool '${tool_ids[index]}' requires uv, but uv is not available."
@@ -1183,6 +1376,11 @@ install_uv_tool() {
   prepare_user_paths "${index}"
   log_verbose "Running command: UV_TOOL_BIN_DIR=${bin_dir} uv tool install --quiet ${package}"
   UV_TOOL_BIN_DIR="${bin_dir}" uv tool install --quiet "${package}"
+  if [[ ! -e "${target_path}" ]]; then
+    log_error "uv package '${package}' did not create expected command '${target_path}'."
+    return 1
+  fi
+  publish_tool_command "${index}" "${target_path}"
 }
 
 install_powershell_gallery_tool() {
@@ -1259,6 +1457,7 @@ install_conda_forge_tool() {
     return 1
   fi
 
+  publish_installer_command "${index}" || return 1
   add_installer_path_entries "${index}" current
 }
 
@@ -1363,6 +1562,11 @@ install_direct_binary_tool() {
     fi
   fi
 
+  if ! publish_tool_command "${index}" "${target_path}"; then
+    rm -rf -- "${temp_dir}"
+    return 1
+  fi
+
   log_verbose "Removing temporary directory '${temp_dir}'."
   rm -rf -- "${temp_dir}"
 }
@@ -1424,6 +1628,10 @@ install_appimage_extract_tool() {
     printf 'APPDIR="%s" exec "%s" "$@"\n' "${install_dir}/squashfs-root" "${app_run}"
   } >"${target_path}"
   chmod 0755 "${target_path}"
+  if ! publish_tool_command "${index}" "${target_path}"; then
+    rm -rf -- "${temp_dir}"
+    return 1
+  fi
   rm -rf -- "${temp_dir}"
 }
 
@@ -1515,6 +1723,10 @@ install_source_make_tool() {
     return 1
   fi
 
+  if ! publish_installer_command "${index}"; then
+    rm -rf -- "${temp_dir}"
+    return 1
+  fi
   add_installer_path_entries "${index}" current
   log_verbose "Removing temporary directory '${temp_dir}'."
   rm -rf -- "${temp_dir}"
@@ -1766,22 +1978,19 @@ same_existing_directory() {
 }
 
 is_shared_removal_directory() {
-  local index="$1"
-  local directory="$2"
+  local directory="$1"
   local candidate
   local shared_directories=(
     "${HOME}/.local"
-    "${HOME}/.local/bin"
+    "$(user_command_dir)"
     "$(toolchain_user_root)"
-    "$(toolchain_user_root)/bin"
+    "$(toolchain_user_root)/tools"
+    "$(toolchain_payload_root)"
+    "$(toolchain_payload_root)/bin"
     "$(node_install_directory)"
     "$(micromamba_install_directory)"
     "$(micromamba_root_prefix)"
   )
-
-  if [[ -z "${prefix_root}" ]]; then
-    shared_directories+=("$(tool_binary_dir "${index}")")
-  fi
 
   for candidate in "${shared_directories[@]}"; do
     if same_existing_directory "${directory}" "${candidate}"; then
@@ -1793,10 +2002,12 @@ is_shared_removal_directory() {
 }
 
 validate_removal_directory() {
-  local index="$1"
-  local directory="$2"
+  local directory="$1"
   local target
   local home_physical
+  local toolchain_root
+  local toolchain_root_physical
+  local is_user_scoped=0
   local marker_path
 
   if [[ -z "${directory}" ]]; then
@@ -1819,19 +2030,31 @@ validate_removal_directory() {
   }
 
   case "${target}/" in
-  "${home_physical}/"*) ;;
-  *)
-    printf 'Managed installation directory is outside the current user HOME.'
-    return 1
-    ;;
+  "${home_physical}/"*) is_user_scoped=1 ;;
   esac
+
+  toolchain_root="$(toolchain_user_root)"
+  if [[ -d "${toolchain_root}" ]]; then
+    toolchain_root_physical="$(physical_directory "${toolchain_root}")" || {
+      printf 'Toolchain data root could not be resolved.'
+      return 1
+    }
+    case "${target}/" in
+    "${toolchain_root_physical}/"*) is_user_scoped=1 ;;
+    esac
+  fi
+
+  if ((is_user_scoped == 0)); then
+    printf 'Managed installation directory is outside the current user HOME and toolchain data root.'
+    return 1
+  fi
 
   if [[ "${target}" == "${home_physical}" ]]; then
     printf 'Refusing to remove the current user HOME directory.'
     return 1
   fi
 
-  if is_shared_removal_directory "${index}" "${target}"; then
+  if is_shared_removal_directory "${target}"; then
     printf 'Managed installation directory is shared; removal is unsafe.'
     return 1
   fi
@@ -1916,7 +2139,7 @@ run_remove_mode() {
     versions[index]="$(removal_version "${index}")"
     marker_directory="$(install_marker_directory "${index}" "${display_directory}")"
 
-    if ! validated_directory="$(validate_removal_directory "${index}" "${marker_directory}")"; then
+    if ! validated_directory="$(validate_removal_directory "${marker_directory}")"; then
       details[index]="${validated_directory}"
       log_warning "Tool '${tool_ids[index]}' was not removed: ${details[index]}"
       continue
@@ -1934,6 +2157,7 @@ run_remove_mode() {
       continue
     fi
 
+    remove_published_tool_command "${index}" "${validated_directory}"
     statuses[index]="Removed"
   done
 

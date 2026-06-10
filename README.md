@@ -27,19 +27,96 @@ On Linux:
 
 Both scripts use `config/tools.yaml` by default.
 
-Use `-v` or `--verbose` to print detailed execution traces. The PowerShell
-script also honors PowerShell's native `-Verbose` common parameter.
-Use `-d` or `--dry-run` to simulate a successful run without modifying files,
-profiles, `PATH`, or installed packages.
-Use `-c <path>` or `--config <path>` to read a custom YAML manifest.
-Use `-p <directory>` or `--prefix <directory>` to install missing tools under
-`<directory>/coding-agent-toolchain/<tool>/`. The prefix must stay inside the
-current user's profile or home directory.
-Use `--check-path` to verify and print whether resolved tool directories are
-available in the current user's `PATH`.
-Use `-r` or `--remove` to remove tools that were installed by Coding Agent
-Toolchain.
-Use `-h` or `--help` to print the script version and help.
+| Argument | Description |
+| --- | --- |
+| `-v`, `--verbose` | Prints detailed execution traces. The PowerShell script also honors PowerShell's native `-Verbose` common parameter. |
+| `-d`, `--dry-run` | Simulates a successful run without modifying files, profiles, `PATH`, or installed packages. |
+| `-c <path>`, `--config <path>` | Reads a custom YAML manifest. |
+| `-p <directory>`, `--prefix <directory>` | Installs missing tools under `<directory>/coding-agent-toolchain/<tool>/`. The prefix must stay inside the current user's profile or home directory and overrides all default installation directories used by the selected platform script. |
+| `--check-path` | Verifies and prints whether resolved tool directories are available in the current user's `PATH`. |
+| `-r`, `--remove` | Removes tools that were installed by Coding Agent Toolchain. |
+| `-h`, `--help` | Prints the script version and help. |
+
+## Default Directories
+
+### Windows
+
+When `scripts/install-tools.ps1` runs without `--prefix`, it uses the current
+user's local application data directory for managed payloads and exposes only
+command shims through a stable command directory.
+
+The default managed payload root is:
+
+```text
+%LOCALAPPDATA%\CodingAgentToolchain\
+```
+
+| Purpose | Default Windows location |
+| --- | --- |
+| Tool payloads | `%LOCALAPPDATA%\CodingAgentToolchain\<tool>\` |
+| Tool commands inside payloads | `<tool>\bin\<command>` or `<tool>\Scripts\<command>` |
+| Commands on `PATH` | `%LOCALAPPDATA%\CodingAgentToolchain\bin\<command>.cmd` shims |
+| Installation marker | `<tool>\.coding-agent-toolchain` |
+| Managed npm prefix | `%LOCALAPPDATA%\CodingAgentToolchain\<tool>\` |
+| Managed Chocolatey root | `%LOCALAPPDATA%\CodingAgentToolchain\chocolatey\` |
+
+This keeps downloaded binaries, npm packages, Python virtual environments, and
+other tool payloads isolated by tool name. The shared `bin` directory contains
+only command shims created by Coding Agent Toolchain, so removal mode can delete
+marked per-tool payload directories and their matching command shims without
+emptying or removing the shared command directory.
+
+Passing `--prefix <directory>` changes the root used for these defaults to
+`<directory>\coding-agent-toolchain\`. For example, tool payloads then use
+`<directory>\coding-agent-toolchain\<tool>\`, and command shims use
+`<directory>\coding-agent-toolchain\bin\`.
+
+### Linux
+
+When `scripts/install-tools.sh` runs without `--prefix`, it uses an
+XDG-compatible user data root for managed payloads and exposes only command
+links through the user command directory.
+
+The default managed payload root is:
+
+```text
+${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-toolchain/tools/linux-<machine>/
+```
+
+`<machine>` is the value reported by `uname -m`, such as `x86_64`. If
+`XDG_DATA_HOME` is unset, empty, or relative, the script uses
+`$HOME/.local/share`.
+
+| Purpose | Default Linux location |
+| --- | --- |
+| Tool payloads | `${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-toolchain/tools/linux-<machine>/<tool>/` |
+| Tool commands inside payloads | `<tool>/bin/<command>` |
+| Commands on `PATH` | `$HOME/.local/bin/<command>` symlinks |
+| Installation marker | `<tool>/.coding-agent-toolchain` |
+| Managed Node.js runtime | `coding-agent-toolchain/tools/linux-<machine>/node/` |
+| Managed micromamba runtime | `coding-agent-toolchain/tools/linux-<machine>/micromamba/` |
+| Managed micromamba root | `coding-agent-toolchain/tools/linux-<machine>/micromamba-root/` |
+
+This keeps architecture-specific binaries under the toolchain-managed data
+tree, while `~/.local/bin` contains only stable entry points. Removal mode can
+therefore delete marked per-tool payload directories and their matching command
+links without emptying or removing the shared `~/.local/bin` directory.
+
+This default layout is compatible with the
+[XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/)
+and the
+[Filesystem Hierarchy Standard 3.0](https://refspecs.linuxfoundation.org/FHS_3.0/fhs/index.html).
+The XDG specification defines `$XDG_DATA_HOME` for user-specific data files,
+defaults it to `$HOME/.local/share`, requires XDG environment paths to be
+absolute, and allows user-specific executables in `$HOME/.local/bin`. The FHS
+treats `/home` as site-specific, recognizes XDG-style home-directory layouts,
+and reserves `/usr/local` for software installed locally by the system
+administrator, so the Linux script avoids system-wide default locations.
+
+Passing `--prefix <directory>` changes the root used for these defaults to
+`<directory>/coding-agent-toolchain/`. For example, tool payloads then use
+`<directory>/coding-agent-toolchain/<tool>/`, and command links use the matching
+`bin/` directory under that prefix.
 
 ## Features
 
@@ -52,8 +129,8 @@ Use `-h` or `--help` to print the script version and help.
   user-scoped micromamba, direct binaries, portable archives, extracted
   AppImages, GitHub release assets, and user-prefix source builds.
 - Supports a custom user-scoped installation prefix for missing tools.
-- Keeps installation state under the current user profile and updates only the
-  current user's `PATH`.
+- Keeps installation state under the current user profile, or the Linux XDG
+  data root when configured, and updates only the current user's `PATH`.
 - Builds Ghostscript from source when a C compiler is available on Linux, then
   falls back to conda-forge through user-scoped micromamba when it is not.
 - Supports dry runs that simulate successful execution without making changes.
@@ -82,7 +159,8 @@ contains the installation timestamp and user name.
 When `-r` or `--remove` is used, a tool directory is removed only when all of
 these conditions are true:
 
-- the directory is inside the current user's profile or home directory;
+- the directory is inside the current user's profile, home directory, or Linux
+  XDG data root;
 - the directory contains the `.coding-agent-toolchain` marker;
 - the directory can be identified as a Coding Agent Toolchain installation.
 

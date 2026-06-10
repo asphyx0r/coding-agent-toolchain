@@ -578,9 +578,21 @@ function Get-ToolBinaryDirectory {
         [object]$Installer
     )
 
+    $installDirectory = Get-InstallDirectory -Tool $Tool -Installer $Installer
+    return Join-Path -Path $installDirectory -ChildPath 'bin'
+}
+
+function Get-CommandDirectory {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Tool,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Installer
+    )
+
     if (Test-InstallPrefixEnabled) {
-        $installDirectory = Get-InstallDirectory -Tool $Tool -Installer $Installer
-        return Join-Path -Path $installDirectory -ChildPath 'bin'
+        return Get-ToolBinaryDirectory -Tool $Tool -Installer $Installer
     }
 
     return $BinDir
@@ -595,11 +607,43 @@ function Get-NpmPrefix {
         [object]$Installer
     )
 
+    return Get-InstallDirectory -Tool $Tool -Installer $Installer
+}
+
+function Get-NpmCommandDirectory {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Tool,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Installer
+    )
+
     if (Test-InstallPrefixEnabled) {
-        return Get-InstallDirectory -Tool $Tool -Installer $Installer
+        return Get-NpmPrefix -Tool $Tool -Installer $Installer
     }
 
-    return $NpmPrefix
+    return $BinDir
+}
+
+function Test-PublishedCommandInstaller {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Installer
+    )
+
+    if (Test-InstallPrefixEnabled) {
+        return $false
+    }
+
+    return $Installer['kind'] -in @(
+        'pip',
+        'python_user',
+        'npm_global',
+        'uv_tool',
+        'direct_binary',
+        'github_release_asset'
+    )
 }
 
 function Get-InstallMarkerDirectory {
@@ -622,6 +666,10 @@ function Get-InstallMarkerDirectory {
             return Get-NpmPrefix -Tool $Tool -Installer $Installer
         }
         { $_ -in @('pip', 'python_user') } {
+            if (-not (Test-InstallPrefixEnabled)) {
+                return Get-InstallDirectory -Tool $Tool -Installer $Installer
+            }
+
             $installDirectory = Get-InstallDirectory -Tool $Tool -Installer $Installer
             if ([string]::IsNullOrWhiteSpace($ExecutableDirectory)) {
                 return $installDirectory
@@ -636,11 +684,7 @@ function Get-InstallMarkerDirectory {
             return $ExecutableDirectory
         }
         { $_ -in @('uv_tool', 'direct_binary', 'github_release_asset') } {
-            if (Test-InstallPrefixEnabled) {
-                return Get-InstallDirectory -Tool $Tool -Installer $Installer
-            }
-
-            return $ExecutableDirectory
+            return Get-InstallDirectory -Tool $Tool -Installer $Installer
         }
         default {
             return $ExecutableDirectory
@@ -677,6 +721,178 @@ function Get-PythonToolScriptsPath {
     return Join-Path -Path $installDirectory -ChildPath 'Scripts'
 }
 
+function Resolve-InstalledCommandPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Directory,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Executable
+    )
+
+    $candidates = [System.Collections.Generic.List[string]]::new()
+    $candidates.Add((Join-Path -Path $Directory -ChildPath $Executable))
+
+    if ([IO.Path]::GetExtension($Executable).Length -eq 0) {
+        foreach ($extension in @('.cmd', '.exe', '.bat', '.ps1')) {
+            $candidates.Add((Join-Path -Path $Directory -ChildPath "$Executable$extension"))
+        }
+    }
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return (Resolve-Path -LiteralPath $candidate).ProviderPath
+        }
+    }
+
+    throw "Installed command '$Executable' was not found in '$Directory'."
+}
+
+function ConvertTo-CmdLiteral {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Value
+    )
+
+    return $Value.Replace('%', '%%')
+}
+
+function Get-PublishedCommandPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Tool,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Installer
+    )
+
+    $commandName = Get-ToolExecutable -Tool $Tool -Installer $Installer
+    if ([IO.Path]::GetExtension($commandName).Length -ne 0) {
+        throw "Cannot publish command '$commandName' as a cmd shim because it already has an extension."
+    }
+
+    $commandDirectory = Get-CommandDirectory -Tool $Tool -Installer $Installer
+    return Join-Path -Path $commandDirectory -ChildPath "$commandName.cmd"
+}
+
+function Get-PublishedCommandTarget {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ShimPath
+    )
+
+    if (-not (Test-Path -LiteralPath $ShimPath -PathType Leaf)) {
+        return ''
+    }
+
+    $targetLine = Get-Content -LiteralPath $ShimPath -TotalCount 2 |
+        Where-Object { $_ -like 'rem coding-agent-toolchain target: *' } |
+        Select-Object -First 1
+    if ([string]::IsNullOrWhiteSpace($targetLine)) {
+        return ''
+    }
+
+    $targetValue = $targetLine.Substring('rem coding-agent-toolchain target: '.Length).Trim()
+    if ($targetValue.StartsWith('"') -and $targetValue.EndsWith('"') -and $targetValue.Length -ge 2) {
+        $targetValue = $targetValue.Substring(1, $targetValue.Length - 2)
+    }
+
+    return $targetValue.Replace('%%', '%')
+}
+
+function Publish-ToolCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Tool,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Installer,
+
+        [Parameter(Mandatory = $true)]
+        [string]$TargetPath
+    )
+
+    if (-not (Test-PublishedCommandInstaller -Installer $Installer)) {
+        return
+    }
+
+    $shimPath = Get-PublishedCommandPath -Tool $Tool -Installer $Installer
+    $commandDirectory = Split-Path -Path $shimPath -Parent
+    Ensure-Directory -Path $commandDirectory
+
+    if (Test-Path -LiteralPath $shimPath -PathType Leaf) {
+        $existingTarget = Get-PublishedCommandTarget -ShimPath $shimPath
+        if ([string]::IsNullOrWhiteSpace($existingTarget)) {
+            throw "Cannot replace unmanaged command shim '$shimPath'."
+        }
+
+        $normalizedExistingTarget = ConvertTo-ComparablePathEntry -Path $existingTarget
+        $normalizedUserRoot = ConvertTo-ComparablePathEntry -Path $UserRoot
+        if (-not $normalizedExistingTarget.StartsWith(
+                "$normalizedUserRoot$([IO.Path]::DirectorySeparatorChar)",
+                [StringComparison]::OrdinalIgnoreCase
+            )) {
+            throw "Cannot replace command shim '$shimPath' because it points outside '$UserRoot'."
+        }
+    }
+
+    $cmdTarget = ConvertTo-CmdLiteral -Value $TargetPath
+    $content = @(
+        '@echo off'
+        "rem coding-agent-toolchain target: `"$cmdTarget`""
+        "`"$cmdTarget`" %*"
+    )
+
+    Write-TraceDetail "Publishing command shim '$shimPath' for '$TargetPath'."
+    Set-Content -LiteralPath $shimPath -Value $content -Encoding ASCII
+    Add-UserPathEntry -Path $commandDirectory
+}
+
+function Remove-PublishedToolCommand {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        'PSUseShouldProcessForStateChangingFunctions',
+        '',
+        Justification = 'Removal is gated by Invoke-RemoveMode ShouldProcess.'
+    )]
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Tool,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Installer,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ManagedDirectory
+    )
+
+    if (-not (Test-PublishedCommandInstaller -Installer $Installer)) {
+        return
+    }
+
+    $shimPath = Get-PublishedCommandPath -Tool $Tool -Installer $Installer
+    if (-not (Test-Path -LiteralPath $shimPath -PathType Leaf)) {
+        return
+    }
+
+    $targetPath = Get-PublishedCommandTarget -ShimPath $shimPath
+    if ([string]::IsNullOrWhiteSpace($targetPath)) {
+        Write-TraceDetail "Leaving unmanaged command shim '$shimPath'."
+        return
+    }
+
+    $normalizedTarget = ConvertTo-ComparablePathEntry -Path $targetPath
+    $normalizedManagedDirectory = ConvertTo-ComparablePathEntry -Path $ManagedDirectory
+    if ($normalizedTarget.StartsWith(
+            "$normalizedManagedDirectory$([IO.Path]::DirectorySeparatorChar)",
+            [StringComparison]::OrdinalIgnoreCase
+        )) {
+        Write-TraceDetail "Removing command shim '$shimPath'."
+        Remove-Item -LiteralPath $shimPath -Force -ErrorAction Stop
+    } else {
+        Write-TraceDetail "Leaving command shim '$shimPath' because it points outside '$ManagedDirectory'."
+    }
+}
+
 function Add-InstallerPathEntries {
     param(
         [Parameter(Mandatory = $true)]
@@ -694,20 +910,14 @@ function Add-InstallerPathEntries {
                 $binPath = if (Test-InstallPrefixEnabled) {
                     Get-PythonToolScriptsPath -Tool $Tool -Installer $Installer
                 } else {
-                    try {
-                        $pythonCommand = Get-PythonCommand
-                        Get-PythonUserScriptsPath -PythonCommand $pythonCommand
-                    } catch {
-                        Write-TraceDetail "Python scripts path is unavailable for '$($Tool['Id'])'."
-                        return
-                    }
+                    Get-CommandDirectory -Tool $Tool -Installer $Installer
                 }
             }
             'npm_global' {
-                $binPath = Get-NpmPrefix -Tool $Tool -Installer $Installer
+                $binPath = Get-NpmCommandDirectory -Tool $Tool -Installer $Installer
             }
             { $_ -in @('uv_tool', 'direct_binary', 'github_release_asset') } {
-                $binPath = Get-ToolBinaryDirectory -Tool $Tool -Installer $Installer
+                $binPath = Get-CommandDirectory -Tool $Tool -Installer $Installer
             }
             default {
                 Write-TraceDetail "Installer for '$($Tool['Id'])' does not declare an additional bin_path."
@@ -721,6 +931,10 @@ function Add-InstallerPathEntries {
         } else {
             Join-Path -Path $installDirectory -ChildPath $Installer['bin_path']
         }
+    }
+
+    if (Test-PublishedCommandInstaller -Installer $Installer) {
+        $binPath = Get-CommandDirectory -Tool $Tool -Installer $Installer
     }
 
     if ($Persist) {
@@ -900,7 +1114,6 @@ function Install-NpmGlobalTool {
 
     Write-TraceDetail "Installing npm package '$package' in prefix '$npmPrefix'."
     Ensure-Directory -Path $npmPrefix
-    Add-UserPathEntry -Path $npmPrefix
     Invoke-NativeCommand -Command 'npm' -Arguments @(
         'install',
         '--global',
@@ -911,6 +1124,11 @@ function Install-NpmGlobalTool {
         '--no-fund',
         $package
     ) | Out-Null
+
+    $targetPath = Resolve-InstalledCommandPath `
+        -Directory $npmPrefix `
+        -Executable (Get-ToolExecutable -Tool $Tool -Installer $Installer)
+    Publish-ToolCommand -Tool $Tool -Installer $Installer -TargetPath $targetPath
 }
 
 function Install-UvTool {
@@ -923,6 +1141,7 @@ function Install-UvTool {
     )
 
     $package = Get-RequiredInstallerValue -Installer $Installer -Name 'package' -ToolId $Tool['Id']
+    $installDirectory = Get-InstallDirectory -Tool $Tool -Installer $Installer
     $binDir = Get-ToolBinaryDirectory -Tool $Tool -Installer $Installer
     if (-not $PSCmdlet.ShouldProcess($package, "Install uv tool in user bin $binDir")) {
         return
@@ -934,15 +1153,23 @@ function Install-UvTool {
 
     Write-TraceDetail "Installing uv tool '$package' in '$binDir'."
     Ensure-Directory -Path $binDir
-    Add-UserPathEntry -Path $binDir
+    $previousToolDir = $env:UV_TOOL_DIR
     $previousToolBinDir = $env:UV_TOOL_BIN_DIR
     try {
+        $env:UV_TOOL_DIR = $installDirectory
         $env:UV_TOOL_BIN_DIR = $binDir
         Invoke-NativeCommand -Command 'uv' -Arguments @('tool', 'install', '--quiet', $package) | Out-Null
     } finally {
+        Write-TraceDetail "Restoring previous UV_TOOL_DIR value."
+        $env:UV_TOOL_DIR = $previousToolDir
         Write-TraceDetail "Restoring previous UV_TOOL_BIN_DIR value."
         $env:UV_TOOL_BIN_DIR = $previousToolBinDir
     }
+
+    $targetPath = Resolve-InstalledCommandPath `
+        -Directory $binDir `
+        -Executable (Get-ToolExecutable -Tool $Tool -Installer $Installer)
+    Publish-ToolCommand -Tool $Tool -Installer $Installer -TargetPath $targetPath
 }
 
 function Install-PowerShellGalleryTool {
@@ -973,50 +1200,39 @@ function Install-PythonUserTool {
     )
 
     $package = Get-RequiredInstallerValue -Installer $Installer -Name 'package' -ToolId $Tool['Id']
-    $target = if (Test-InstallPrefixEnabled) {
-        "Install Python package in user virtual environment for $($Tool['Id'])"
-    } else {
-        'Install Python package for current user'
-    }
+    $target = "Install Python package in user virtual environment for $($Tool['Id'])"
     if (-not $PSCmdlet.ShouldProcess($package, $target)) {
         return
     }
 
     $pythonCommand = Get-PythonCommand
-    if (Test-InstallPrefixEnabled) {
-        $installDirectory = Get-InstallDirectory -Tool $Tool -Installer $Installer
-        $scriptsPath = Get-PythonToolScriptsPath -Tool $Tool -Installer $Installer
-        $venvPython = Join-Path -Path $scriptsPath -ChildPath 'python.exe'
-        Write-TraceDetail "Installing Python package '$package' in virtual environment '$installDirectory'."
-        Ensure-Directory -Path (Split-Path -Path $installDirectory -Parent)
-        Invoke-PythonCommand -PythonCommand $pythonCommand -Arguments @('-m', 'venv', $installDirectory) | Out-Null
-        if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf)) {
-            throw "Python virtual environment for '$($Tool['Id'])' did not create '$venvPython'."
-        }
-
-        Add-UserPathEntry -Path $scriptsPath
-        Invoke-PythonCommand -PythonCommand $venvPython -Arguments @(
-            '-m',
-            'pip',
-            'install',
-            '--quiet',
-            $package
-        ) | Out-Null
-        return
+    $installDirectory = Get-InstallDirectory -Tool $Tool -Installer $Installer
+    $scriptsPath = Get-PythonToolScriptsPath -Tool $Tool -Installer $Installer
+    $venvPython = Join-Path -Path $scriptsPath -ChildPath 'python.exe'
+    Write-TraceDetail "Installing Python package '$package' in virtual environment '$installDirectory'."
+    Ensure-Directory -Path (Split-Path -Path $installDirectory -Parent)
+    Invoke-PythonCommand -PythonCommand $pythonCommand -Arguments @('-m', 'venv', $installDirectory) | Out-Null
+    if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf)) {
+        throw "Python virtual environment for '$($Tool['Id'])' did not create '$venvPython'."
     }
 
-    $scriptsPath = Get-PythonUserScriptsPath -PythonCommand $pythonCommand
-    Write-TraceDetail "Installing Python package '$package' with --user into scripts path '$scriptsPath'."
-    Ensure-Directory -Path $scriptsPath
-    Add-UserPathEntry -Path $scriptsPath
-    Invoke-PythonCommand -PythonCommand $pythonCommand -Arguments @(
+    Invoke-PythonCommand -PythonCommand $venvPython -Arguments @(
         '-m',
         'pip',
         'install',
-        '--user',
         '--quiet',
         $package
     ) | Out-Null
+
+    if (Test-InstallPrefixEnabled) {
+        Add-UserPathEntry -Path $scriptsPath
+        return
+    }
+
+    $targetPath = Resolve-InstalledCommandPath `
+        -Directory $scriptsPath `
+        -Executable (Get-ToolExecutable -Tool $Tool -Installer $Installer)
+    Publish-ToolCommand -Tool $Tool -Installer $Installer -TargetPath $targetPath
 }
 
 function Install-PipTool {
@@ -1138,11 +1354,11 @@ function Install-DirectBinaryTool {
     $url = Get-InstallerDownloadUrl -Installer $Installer -ToolId $Tool['Id']
     Write-TraceDetail "Downloading direct binary for '$($Tool['Id'])' from '$url' to '$targetPath'."
     Ensure-Directory -Path $binDir
-    Add-UserPathEntry -Path $binDir
 
     if (-not $Installer.Contains('archive_kind')) {
         Write-TraceDetail "Downloading plain binary file for '$($Tool['Id'])'."
         Invoke-WebRequest -Uri $url -OutFile $targetPath -UseBasicParsing
+        Publish-ToolCommand -Tool $Tool -Installer $Installer -TargetPath $targetPath
         return
     }
 
@@ -1179,6 +1395,7 @@ function Install-DirectBinaryTool {
 
         Write-TraceDetail "Copying extracted binary from '$candidatePath' to '$targetPath'."
         Copy-Item -LiteralPath $candidatePath -Destination $targetPath -Force
+        Publish-ToolCommand -Tool $Tool -Installer $Installer -TargetPath $targetPath
     } finally {
         if (Test-Path -LiteralPath $tempRoot) {
             Write-TraceDetail "Removing temporary directory '$tempRoot'."
@@ -1760,6 +1977,7 @@ function Invoke-RemoveMode {
             $status = 'Failed'
             if ($PSCmdlet.ShouldProcess($safeDirectory, "Remove marked tool directory for $($tool['Id'])")) {
                 Remove-Item -LiteralPath $safeDirectory -Recurse -Force -ErrorAction Stop
+                Remove-PublishedToolCommand -Tool $tool -Installer $installer -ManagedDirectory $safeDirectory
                 $status = 'Removed'
             } else {
                 $status = 'Skipped'
