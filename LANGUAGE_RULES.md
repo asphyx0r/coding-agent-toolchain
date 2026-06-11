@@ -677,6 +677,22 @@ Use the operational definitions in `CODING_RULES.md` for qualitative phrases suc
 
 ### Tests
 
+- Run `sqlfluff lint` against generated or modified SQL scripts when SQLFluff is installed, available, accessible, and
+  suitable for the target SQL dialect.
+- Use the repository's existing SQLFluff configuration and dialect settings when they exist.
+- If `sqlfluff lint` requires a dialect and no reliable project or task context identifies one, report the limitation
+  instead of guessing a dialect silently.
+- Treat `sqlfluff lint` syntax failures as blocking defects. Treat SQLFluff style and lint findings as defects unless
+  they conflict with a verified project convention or an explicitly documented target-database requirement.
+- Do not disable, relax, or bypass SQLFluff rules to make SQL pass unless the user explicitly requests that
+  configuration change.
+- If SQLFluff is not installed, unavailable, inaccessible, or unsuitable for the target dialect, report that limitation
+  and use the best available fallback check, such as the target database parser, a migration dry run, `EXPLAIN`, the
+  project's SQL test command, dbt compilation, or a dialect-aware manual review.
+- State that fallback validation does not replace a successful `sqlfluff lint` run.
+- Do not treat SQLFluff as a substitute for semantic, migration, schema, permission, or performance validation; use it
+  together with the relevant database, migration, test, and execution-plan checks when correctness depends on runtime
+  behavior.
 - For slow, expensive, business-critical, or production-impacting SQL, inspect the execution plan instead of guessing.
 - Verify whether performance-sensitive queries scan too much data, use expected indexes, sort unnecessarily, or perform
   expensive joins.
@@ -2128,9 +2144,23 @@ rule for framework code.
 ### Tests
 
 - Use the project's existing Python test framework and test layout before introducing any new testing convention.
-- When available and configured, run the relevant Python formatter, linter, type checker, tests, and coverage checks.
-- Use project-approved tools such as `pytest` , `unittest` , `ruff` , `black` , `mypy` , or `pyright` only when they are
-  already part of the project or explicitly requested.
+- Run `ruff check` against every generated or modified Python file when Ruff is installed, available, and accessible in
+  the working environment.
+- Use the repository's existing Ruff configuration when one exists; do not add or change Ruff configuration unless the
+  user explicitly requests it.
+- Treat `ruff check` syntax failures as blocking defects. Treat Ruff lint findings as defects unless they conflict with
+  a verified project convention or an explicitly documented compatibility requirement.
+- Do not disable, relax, or bypass Ruff rules to make Python pass unless the user explicitly requests that configuration
+  change.
+- Use `ruff check --fix` only when the fix is reviewed, scoped to files already in the current task, and does not create
+  unrelated formatting or behavior changes.
+- If Ruff is not installed, unavailable, or inaccessible, explicitly warn the user and use the best available fallback
+  check, such as the project's configured Python linter, `python -m py_compile`, `python -m compileall`, the project
+  test command, an available type checker, or a manual review against this Python section.
+- State that fallback validation does not replace a successful `ruff check` run.
+- When available and configured, also run the relevant Python formatter, type checker, tests, and coverage checks.
+- Do not treat Ruff as a substitute for tests, type checking, runtime validation, dependency checks, or security review
+  when those are relevant to correctness.
 - If checks cannot be run, state exactly which Python checks were skipped and why.
 
 ### Idioms
@@ -2299,8 +2329,18 @@ rule for framework code.
 
 ### Tests
 
-- Validate generated or modified PowerShell with PowerShell-aware tooling when available.
-- Run or recommend `PSScriptAnalyzer`, formatting checks, and minimal execution tests when the environment allows it.
+- Run `Invoke-ScriptAnalyzer` against every generated or modified PowerShell script when PSScriptAnalyzer is installed,
+  available, and accessible in the working environment.
+- Use the repository's existing PSScriptAnalyzer settings when they exist; do not add or change analyzer settings unless
+  the user explicitly requests that configuration change.
+- Treat `Invoke-ScriptAnalyzer` findings as defects to address unless a finding conflicts with a verified project
+  convention or an explicitly documented compatibility requirement.
+- Do not suppress, exclude, or bypass PSScriptAnalyzer findings to make PowerShell pass unless the user explicitly
+  requests that configuration change.
+- If `PSScriptAnalyzer` is not installed, unavailable, or inaccessible, report that limitation and use the best
+  available fallback check, such as PowerShell parser validation, a syntax-only run, the project test suite, or the
+  target tool's native validation command.
+- State that fallback validation does not replace a successful `Invoke-ScriptAnalyzer` run.
 - Test pipeline input, validation attributes, error paths, and state-changing commands when they are affected by a
   change.
 - Do not claim a PowerShell rule is functionally required when it is only stylistic or taste-based.

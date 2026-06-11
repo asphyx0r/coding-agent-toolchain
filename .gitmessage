@@ -3,20 +3,24 @@
 #   git commit --template=.gitmessage
 
 
-# === Summary (required) ===
-# Short imperative sentence, max 50 characters.
-# Do not end the subject line with a period
-# No more than 50 chars. #### 50 chars is here:  #
-# Separate subject from body with a blank line
+# === Header (required) ===
+# Conventional Commits format:
+#   type[optional scope][optional !]: description
+#
+# Keep the header at 50 characters or fewer.
+# Use a lowercase imperative description.
+# Do not end the header with a period.
+# Separate the header from the body with a blank line.
 # Examples:
-#   Fix crash on empty configuration
-#   Add REST endpoint for user deletion
-#   Update SQL migrations for v2 schema
+#   docs: align commit rules
+#   fix(path): preserve cleanup
+#   feat(tools): add ruff installer
+#   feat(tools)!: remove legacy shim
 
-<summary>
+<type>[optional scope][optional !]: <description>
 
 
-# === Description (optional but recommended) ===
+# === Body (optional but recommended) ===
 # Describe the context, rationale, and solution.
 # Explain *what* and *why* (not *how*). Include related issue or
 # task ID when available.
@@ -27,36 +31,18 @@
 #   The previous loader crashed when the config file was empty.
 #   Added guard clauses and default values to ensure stability.
 
-<description>
+<body>
 
 
-# === Impact (optional) ===
-# Mention side effects, compatibility issues, migrations, etc.
-# Max 72 characters per line.
-# Wrap at 72 chars. ################################## which is here:  #
-#
-# Examples:
-#   No breaking change
-#   Requires DB migration 20251126-add-index.sql
-
-<impact>
-
-
-# === References (optional) ===
-# Link to related issues, tickets, or documents.
+# === Footers (optional) ===
+# Use trailer-like metadata for references, reviews, acknowledgements,
+# and breaking changes.
 # Max 72 characters per line.
 # Wrap at 72 chars. ################################## which is here:  #
 #
 # Examples:
 #   Refs: PROJ-1289
 #   Fixes: #42
+#   BREAKING CHANGE: remove support for legacy shims
 
-<references>
-
-
-# === Notes for reviewers (optional) ===
-# Anything useful for code review or testing context.
-# Max 72 characters per line.
-# Wrap at 72 chars. ################################## which is here:  #
-
-<review notes>
+<footers>

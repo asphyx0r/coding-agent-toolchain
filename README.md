@@ -242,11 +242,18 @@ sections for release entries.
 
 ## Contributing
 
-Before committing, configure the repository commit template if you want Git to
-load it automatically:
+Use Conventional Commit headers for repository commits. Before committing,
+configure the repository commit template if you want Git to load it
+automatically:
 
 ```powershell
 git config commit.template .gitmessage
+```
+
+Example header:
+
+```text
+docs: align commit rules
 ```
 
 ## License

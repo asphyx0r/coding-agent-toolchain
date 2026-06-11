@@ -88,3 +88,179 @@ Apply these rules before creating any commit.
   separate `git commit -m` argument, because Git treats each `-m` as a
   separate paragraph. Use a commit message file, an editor/template, or one
   body argument containing embedded newlines.
+
+## Conventional Commit Message Rules
+
+### Naming
+
+- Use Conventional Commits as the default commit header format unless a
+  higher-priority project instruction, repository-specific `.gitmessage`,
+  resolved commitlint configuration, or explicit documented project convention
+  requires a different format.
+- Write the header as `type[optional scope][optional !]: description` when
+  Conventional Commits are used. The `type` and `description` are required;
+  the `scope` and `!` marker are optional.
+- Use `feat` only when the commit adds a user-visible or project-visible
+  feature to the application, library, repository, or tooling.
+- Use `fix` only when the commit corrects a bug, broken behavior, invalid
+  repository content, or a documented defect.
+- Use other commit types only when they are accepted by the repository
+  convention. If the repository uses `@commitlint/config-conventional` and does
+  not define a narrower `type-enum`, use only accepted types such as `build`,
+  `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`,
+  and `test`.
+- Do not invent a commit type when the repository defines an explicit
+  `type-enum`. Choose one of the configured types or ask the user when no
+  configured type fits the staged change set.
+- Add a scope only when it identifies a meaningful repository area, such as a
+  package, module, application, documentation area, configuration area, tooling
+  area, or CI component.
+- Keep scopes short, lowercase unless the repository convention says otherwise,
+  and consistent with existing commit history and the resolved commitlint
+  configuration.
+- Do not add a scope merely to name a single changed file unless that file is a
+  stable repository area in the project convention.
+- When multiple scopes are allowed, separate them only with delimiters accepted
+  by the repository configuration. Do not mix multi-scope delimiter styles in a
+  single commit header.
+
+### Formatting
+
+- Treat the Conventional Commits header as the commit subject line for all
+  generic subject-line rules in this file.
+- Apply the strictest applicable header or subject length limit from this file,
+  `.gitmessage`, the resolved commitlint configuration, and explicit project
+  documentation.
+- Do not add leading or trailing whitespace to the header, body, or footers.
+- Write a non-empty description immediately after the colon-space separator.
+  The description must summarize the staged change set directly and must not be
+  generic.
+- Start the description with a lowercase imperative phrase unless the
+  repository history or project convention requires another style.
+- Do not end the header description with a period.
+- Place the optional body one blank line after the header. Use the body only
+  when extra context is useful for understanding motivation, constraints,
+  implementation context, migration impact, or user-visible impact.
+- Place footers one blank line after the body, or one blank line after the
+  header when there is no body.
+- Write footers as trailer-like metadata, such as `Refs: #123`,
+  `Reviewed-by: Name`, or another project-approved token.
+- Use hyphenated footer tokens when a footer token contains multiple words,
+  such as `Acked-by`. The token `BREAKING CHANGE` is the only non-hyphenated
+  multi-word token allowed by Conventional Commits; `BREAKING-CHANGE` is
+  equivalent when used as a footer token.
+- Mark breaking changes explicitly with either `!` before the colon or an
+  uppercase `BREAKING CHANGE:` or `BREAKING-CHANGE:` footer. Do not require
+  both forms unless the resolved commitlint configuration explicitly enforces
+  that policy.
+- If a `BREAKING CHANGE:` or `BREAKING-CHANGE:` footer is used, describe the
+  incompatible behavior and the required migration action when that information
+  is known from the change.
+
+### Errors
+
+- Do not force unrelated staged changes into one ambiguous Conventional Commits
+  type. Split the staged changes into separate commits when the changes have
+  unrelated purposes and can be separated safely.
+- If the staged change set cannot be represented by one accurate header, stop
+  and ask whether to split the commit or create a broader message that names the
+  shared intent.
+- Treat a mismatch between the selected type and the staged diff as a commit
+  message defect that must be fixed before committing.
+- Treat an empty description, invalid type, invalid scope, invalid footer token,
+  or invalid breaking-change marker as a blocking commit message defect when
+  those rules are required by the repository convention.
+- If commitlint rejects a candidate message, read the reported rule names and
+  fix the message according to those rules instead of retrying blindly.
+- Do not use `revert` unless the commit actually reverts a previous commit or a
+  clearly identified previous change.
+- For a revert commit, reference the reverted commit hash or change identifier
+  when it is known and useful.
+
+### Safety
+
+- Before generating the final commit message, inspect the resolved commitlint
+  configuration with `npx commitlint --print-config json` when commitlint is
+  available in the repository.
+- Treat the resolved commitlint configuration as the repository contract for
+  types, scopes, parser presets, length limits, breaking-change policy, and
+  footer rules.
+- Prefer repository-local commit rules over generic Conventional Commits
+  defaults whenever they differ.
+- Do not generalize a repository-specific `type-enum`, `scope-enum`, parser
+  preset, release policy, or footer convention to another repository unless an
+  explicit shared standard says to do so.
+- Never bypass commit message validation with `--no-verify` unless the user
+  explicitly approves the bypass after seeing the validation failure and its
+  risk.
+- Do not claim that commitlint, hooks, CI validation, release parsing, or branch
+  protection accepted a commit unless the corresponding check was actually run
+  or inspected.
+- If the repository uses changelog generation, semantic-release, or similar
+  tooling, keep the commitlint parser preset and release parser preset aligned
+  when the current task modifies commit or release tooling.
+- Do not modify hook, CI, release, or commitlint configuration while preparing a
+  normal commit unless the user requested that tooling change or it is a direct
+  consequence of the current task.
+
+### Tests
+
+- Validate the final candidate commit message with commitlint before running
+  `git commit` when commitlint is available or required by the repository.
+- For single-line messages, validation by piping the exact message to
+  `npx commitlint` is acceptable when the shell command preserves the message
+  byte-for-byte.
+- For multi-line messages or messages containing shell-sensitive characters,
+  write the candidate message to a temporary file and validate that file with
+  `npx commitlint --edit <path>` or a repository-defined equivalent.
+- Use a `commit-msg` hook for local commit message validation when configuring
+  local commit validation. Do not rely on a `pre-commit` hook for commit message
+  linting.
+- If the current task changes commit validation policy for a shared repository,
+  ensure that commit message validation is also enforced in CI when the project
+  supports CI changes.
+- If commitlint is unavailable, report that message validation could not be run
+  and continue only with the static rules in this file and the repository's
+  visible templates or documentation.
+
+### Idioms
+
+- Prefer the smallest accurate Conventional Commits type over a broad catch-all
+  type.
+- Prefer a concise scope over a long descriptive scope when both identify the
+  same repository area.
+- Use the body to explain why a change was made; do not repeat the header in a
+  longer sentence.
+- Use footers for structured metadata, issue references, acknowledgements,
+  reviews, and breaking-change declarations; do not hide structured metadata in
+  free-form body text.
+- Use `BREAKING CHANGE:` or `BREAKING-CHANGE:` only for incompatible changes
+  that consumers, users, operators, or downstream automation must handle.
+- Use `chore` only for maintenance work that does not fit a more specific
+  accepted type such as `build`, `ci`, `docs`, `refactor`, `style`, or `test`.
+- Use `style` only for formatting or style-only changes that do not alter
+  behavior.
+- Use `refactor` only for code restructuring that does not add a feature or fix
+  a bug.
+- Use `perf` only for a change whose purpose is performance improvement.
+
+### Other
+
+- Source basis: Conventional Commits 1.0.0 and commitlint documentation for
+  README usage, rules, configuration, local setup, CI setup, and AI-agent
+  guidance.
+- Keep this section aligned with the repository's resolved commitlint
+  configuration and with any repository-local commit message template.
+- Review this section whenever the project changes commit types, scopes,
+  parser presets, release tooling, changelog tooling, or commit validation
+  policy.
+- Use these minimal valid headers as examples of shape only; do not copy them
+  when they do not represent the staged changes:
+
+  ```text
+  feat(parser): add array parsing
+  fix(server): send cors headers
+  docs: correct changelog typo
+  refactor(api): simplify request validation
+  feat(api)!: remove deprecated endpoint
+  ```
