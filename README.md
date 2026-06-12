@@ -27,15 +27,21 @@ On Linux:
 
 Both scripts use `config/tools.yaml` by default.
 
-| Argument | Description |
-| --- | --- |
-| `-v`, `--verbose` | Prints detailed execution traces. The PowerShell script also honors PowerShell's native `-Verbose` common parameter. |
-| `-d`, `--dry-run` | Simulates a successful run without modifying files, profiles, `PATH`, or installed packages. |
-| `-c <path>`, `--config <path>` | Reads a custom YAML manifest. |
-| `-p <directory>`, `--prefix <directory>` | Installs missing tools under `<directory>/coding-agent-toolchain/<tool>/`. The prefix must stay inside the current user's profile or home directory and overrides all default installation directories used by the selected platform script. |
-| `--check-path` | Verifies and prints whether resolved tool directories are available in the current user's `PATH`. |
-| `-r`, `--remove` | Removes tools that were installed by Coding Agent Toolchain. |
-| `-h`, `--help` | Prints the script version and help. |
+Supported arguments:
+
+- `-v`, `--verbose`: prints detailed execution traces. The PowerShell script
+  also honors PowerShell's native `-Verbose` common parameter.
+- `-d`, `--dry-run`: simulates a successful run without modifying files,
+  profiles, `PATH`, or installed packages.
+- `-c <path>`, `--config <path>`: reads a custom YAML manifest.
+- `-p <directory>`, `--prefix <directory>`: installs missing tools under
+  `<directory>/coding-agent-toolchain/<tool>/`. The prefix must stay inside the
+  current user's profile or home directory and overrides all default
+  installation directories used by the selected platform script.
+- `--check-path`: verifies and prints whether resolved tool directories are
+  available in the current user's `PATH`.
+- `-r`, `--remove`: removes tools that were installed by Coding Agent Toolchain.
+- `-h`, `--help`: prints the script version and help.
 
 ## Default Directories
 
@@ -68,8 +74,8 @@ emptying or removing the shared command directory.
 
 Passing `--prefix <directory>` changes the root used for these defaults to
 `<directory>\coding-agent-toolchain\`. For example, tool payloads then use
-`<directory>\coding-agent-toolchain\<tool>\`, and command shims use
-`<directory>\coding-agent-toolchain\bin\`.
+`<directory>\coding-agent-toolchain\<tool>\`, and command shims use the
+matching `bin\` directory under each tool payload.
 
 ### Linux
 
@@ -169,25 +175,27 @@ is skipped, the removal summary reports the reason in the `Version` column.
 
 ## Installed Tools
 
-| Program | Source repository |
-| --- | --- |
-| `yamllint` | [adrienverge/yamllint](https://github.com/adrienverge/yamllint) |
-| `yq` | [mikefarah/yq](https://github.com/mikefarah/yq) |
-| `jq` | [jqlang/jq](https://github.com/jqlang/jq) |
-| `shfmt` | [patrickvane/shfmt](https://github.com/patrickvane/shfmt) |
-| `markdownlint-cli2` | [DavidAnson/markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2) |
-| `commitlint` | [conventional-changelog/commitlint](https://github.com/conventional-changelog/commitlint) |
-| ImageMagick | [ImageMagick/ImageMagick](https://github.com/ImageMagick/ImageMagick) |
-| Ghostscript | [ArtifexSoftware/ghostpdl](https://github.com/ArtifexSoftware/ghostpdl) |
-| `shellcheck` | [koalaman/shellcheck](https://github.com/koalaman/shellcheck) |
-| `sqlfluff` | [sqlfluff/sqlfluff](https://github.com/sqlfluff/sqlfluff) |
-| `pre-commit` | [pre-commit/pre-commit](https://github.com/pre-commit/pre-commit) |
-| Gitleaks | [Gitleaks/Gitleaks](https://github.com/gitleaks/gitleaks) |
-| `betterleaks` | [betterleaks/betterleaks](https://github.com/betterleaks/betterleaks) |
-| GitHub CLI | [cli/cli](https://github.com/cli/cli) |
-| `ruff` | [astral-sh/ruff](https://github.com/astral-sh/ruff) |
-| `editorconfig-checker` | [editorconfig-checker/editorconfig-checker](https://github.com/editorconfig-checker/editorconfig-checker) |
-| PSScriptAnalyzer | [PowerShell/PSScriptAnalyzer](https://github.com/PowerShell/PSScriptAnalyzer) |
+The list below points to each upstream project. Installation sources are defined
+in `config/tools.yaml` and can use a separate release repository or direct
+download URL.
+
+- `yamllint`: [yamllint project](https://github.com/adrienverge/yamllint)
+- `yq`: [yq project](https://github.com/mikefarah/yq)
+- `jq`: [jq project](https://github.com/jqlang/jq)
+- `shfmt`: [shfmt project](https://github.com/patrickvane/shfmt)
+- `markdownlint-cli2`: [markdownlint-cli2 project](https://github.com/DavidAnson/markdownlint-cli2)
+- `commitlint`: [commitlint project](https://github.com/conventional-changelog/commitlint)
+- ImageMagick: [ImageMagick project](https://github.com/ImageMagick/ImageMagick)
+- Ghostscript: [Ghostscript project](https://github.com/ArtifexSoftware/ghostpdl)
+- `shellcheck`: [ShellCheck project](https://github.com/koalaman/shellcheck)
+- `sqlfluff`: [SQLFluff project](https://github.com/sqlfluff/sqlfluff)
+- `pre-commit`: [pre-commit project](https://github.com/pre-commit/pre-commit)
+- Gitleaks: [Gitleaks project](https://github.com/gitleaks/gitleaks)
+- `betterleaks`: [betterleaks project](https://github.com/betterleaks/betterleaks)
+- GitHub CLI: [GitHub CLI project](https://github.com/cli/cli)
+- `ruff`: [Ruff project](https://github.com/astral-sh/ruff)
+- `editorconfig-checker`: [editorconfig-checker project](https://github.com/editorconfig-checker/editorconfig-checker)
+- PSScriptAnalyzer: [PSScriptAnalyzer project](https://github.com/PowerShell/PSScriptAnalyzer)
 
 ## Configuration
 
@@ -234,11 +242,33 @@ markdownlint-cli2 "**/*.md"
 yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml
 ```
 
+When scripts change, also run the script checks:
+
+```powershell
+bash -n scripts/install-tools.sh
+shellcheck scripts/install-tools.sh
+
+$tokens = $null
+$errors = $null
+[System.Management.Automation.Language.Parser]::ParseFile(
+    (Resolve-Path .\scripts\install-tools.ps1),
+    [ref] $tokens,
+    [ref] $errors
+) > $null
+if ($errors) {
+    $errors
+    exit 1
+}
+
+Invoke-ScriptAnalyzer -Path .\scripts\install-tools.ps1
+```
+
 ## Versioning
 
-Scripts report the internal version that matches the current release tag. For
-this release, the internal script version is `v1.1.1`. `CHANGELOG.md` uses tag
-sections for release entries.
+Scripts report the internal version for the latest tagged release. The latest
+tagged release documented in `CHANGELOG.md` is `v1.1.1`, and both script
+implementations currently report `v1.1.1`. `CHANGELOG.md` uses tag sections for
+release entries.
 
 ## Contributing
 

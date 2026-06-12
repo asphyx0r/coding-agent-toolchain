@@ -236,7 +236,7 @@ function ConvertFrom-ManifestValue {
     return $trimmed
 }
 
-function New-ToolEntry {
+function Initialize-ToolEntry {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Id
@@ -289,7 +289,7 @@ function Read-ToolManifest {
         if ($line -match '^  - id:\s*(.+)$') {
             $toolId = ConvertFrom-ManifestValue -Value $matches[1]
             Write-TraceDetail "Reading manifest entry for tool '$toolId'."
-            $currentTool = New-ToolEntry -Id $toolId
+            $currentTool = Initialize-ToolEntry -Id $toolId
             $tools.Add($currentTool)
             $currentSection = 'tool'
             $currentOs = $null
@@ -433,7 +433,7 @@ function Add-UserPathEntry {
     [Environment]::SetEnvironmentVariable('Path', $newUserPath, 'User')
 }
 
-function Ensure-Directory {
+function Confirm-Directory {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Path
@@ -475,7 +475,7 @@ function Write-InstallMarker {
         throw 'Cannot write installation marker because the tool directory is empty.'
     }
 
-    Ensure-Directory -Path $Directory
+    Confirm-Directory -Path $Directory
     $markerPath = Join-Path -Path $Directory -ChildPath '.coding-agent-toolchain'
     Write-TraceDetail "Writing installation marker '$markerPath'."
     Set-Content -LiteralPath $markerPath -Value (Get-InstallMarkerContent) -Encoding ASCII
@@ -818,7 +818,7 @@ function Publish-ToolCommand {
 
     $shimPath = Get-PublishedCommandPath -Tool $Tool -Installer $Installer
     $commandDirectory = Split-Path -Path $shimPath -Parent
-    Ensure-Directory -Path $commandDirectory
+    Confirm-Directory -Path $commandDirectory
 
     if (Test-Path -LiteralPath $shimPath -PathType Leaf) {
         $existingTarget = Get-PublishedCommandTarget -ShimPath $shimPath
@@ -893,7 +893,7 @@ function Remove-PublishedToolCommand {
     }
 }
 
-function Add-InstallerPathEntries {
+function Add-InstallerPathEntry {
     param(
         [Parameter(Mandatory = $true)]
         [object]$Tool,
@@ -1032,7 +1032,7 @@ function Expand-ToolArchive {
             }
 
             Write-TraceDetail "Extracting 7z archive for '$ToolId' to '$DestinationPath'."
-            Ensure-Directory -Path $DestinationPath
+            Confirm-Directory -Path $DestinationPath
             Invoke-NativeCommand -Command 'tar' -Arguments @('-xf', $ArchivePath, '-C', $DestinationPath) | Out-Null
         }
         default {
@@ -1094,6 +1094,7 @@ function Get-PythonUserScriptsPath {
 }
 
 function Install-NpmGlobalTool {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [Parameter(Mandatory = $true)]
         [object]$Tool,
@@ -1113,7 +1114,7 @@ function Install-NpmGlobalTool {
     }
 
     Write-TraceDetail "Installing npm package '$package' in prefix '$npmPrefix'."
-    Ensure-Directory -Path $npmPrefix
+    Confirm-Directory -Path $npmPrefix
     Invoke-NativeCommand -Command 'npm' -Arguments @(
         'install',
         '--global',
@@ -1132,6 +1133,7 @@ function Install-NpmGlobalTool {
 }
 
 function Install-UvTool {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [Parameter(Mandatory = $true)]
         [object]$Tool,
@@ -1152,7 +1154,7 @@ function Install-UvTool {
     }
 
     Write-TraceDetail "Installing uv tool '$package' in '$binDir'."
-    Ensure-Directory -Path $binDir
+    Confirm-Directory -Path $binDir
     $previousToolDir = $env:UV_TOOL_DIR
     $previousToolBinDir = $env:UV_TOOL_BIN_DIR
     try {
@@ -1173,6 +1175,7 @@ function Install-UvTool {
 }
 
 function Install-PowerShellGalleryTool {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [Parameter(Mandatory = $true)]
         [object]$Tool,
@@ -1191,6 +1194,7 @@ function Install-PowerShellGalleryTool {
 }
 
 function Install-PythonUserTool {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [Parameter(Mandatory = $true)]
         [object]$Tool,
@@ -1210,7 +1214,7 @@ function Install-PythonUserTool {
     $scriptsPath = Get-PythonToolScriptsPath -Tool $Tool -Installer $Installer
     $venvPython = Join-Path -Path $scriptsPath -ChildPath 'python.exe'
     Write-TraceDetail "Installing Python package '$package' in virtual environment '$installDirectory'."
-    Ensure-Directory -Path (Split-Path -Path $installDirectory -Parent)
+    Confirm-Directory -Path (Split-Path -Path $installDirectory -Parent)
     Invoke-PythonCommand -PythonCommand $pythonCommand -Arguments @('-m', 'venv', $installDirectory) | Out-Null
     if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf)) {
         throw "Python virtual environment for '$($Tool['Id'])' did not create '$venvPython'."
@@ -1248,6 +1252,7 @@ function Install-PipTool {
 }
 
 function Install-BrewTool {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [Parameter(Mandatory = $true)]
         [object]$Tool,
@@ -1270,6 +1275,7 @@ function Install-BrewTool {
 }
 
 function Install-WingetTool {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [Parameter(Mandatory = $true)]
         [object]$Tool,
@@ -1305,6 +1311,7 @@ function Install-WingetTool {
 }
 
 function Install-ChocolateyTool {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [Parameter(Mandatory = $true)]
         [object]$Tool,
@@ -1323,7 +1330,7 @@ function Install-ChocolateyTool {
     }
 
     Write-TraceDetail "Installing Chocolatey package '$package' under '$ChocolateyInstallDir'."
-    Ensure-Directory -Path $ChocolateyInstallDir
+    Confirm-Directory -Path $ChocolateyInstallDir
     Invoke-NativeCommand -Command 'choco' -Arguments @(
         'install',
         $package,
@@ -1335,6 +1342,7 @@ function Install-ChocolateyTool {
 }
 
 function Install-DirectBinaryTool {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [Parameter(Mandatory = $true)]
         [object]$Tool,
@@ -1353,7 +1361,7 @@ function Install-DirectBinaryTool {
 
     $url = Get-InstallerDownloadUrl -Installer $Installer -ToolId $Tool['Id']
     Write-TraceDetail "Downloading direct binary for '$($Tool['Id'])' from '$url' to '$targetPath'."
-    Ensure-Directory -Path $binDir
+    Confirm-Directory -Path $binDir
 
     if (-not $Installer.Contains('archive_kind')) {
         Write-TraceDetail "Downloading plain binary file for '$($Tool['Id'])'."
@@ -1368,7 +1376,7 @@ function Install-DirectBinaryTool {
     $extractPath = Join-Path -Path $tempRoot -ChildPath 'extract'
 
     try {
-        Ensure-Directory -Path $tempRoot
+        Confirm-Directory -Path $tempRoot
         Write-TraceDetail "Downloading archive for '$($Tool['Id'])' to '$archivePath'."
         Invoke-WebRequest -Uri $url -OutFile $archivePath -UseBasicParsing
         $expandArguments = @{
@@ -1405,6 +1413,7 @@ function Install-DirectBinaryTool {
 }
 
 function Install-PortableArchiveTool {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [Parameter(Mandatory = $true)]
         [object]$Tool,
@@ -1426,7 +1435,7 @@ function Install-PortableArchiveTool {
     $extractPath = Join-Path -Path $tempRoot -ChildPath 'extract'
 
     try {
-        Ensure-Directory -Path $tempRoot
+        Confirm-Directory -Path $tempRoot
         Write-TraceDetail "Downloading portable archive for '$($Tool['Id'])' from '$url' to '$archivePath'."
         Invoke-WebRequest -Uri $url -OutFile $archivePath -UseBasicParsing
         $expandArguments = @{
@@ -1451,13 +1460,13 @@ function Install-PortableArchiveTool {
             $sourceRoot = $candidate.DirectoryName
         }
 
-        Ensure-Directory -Path $installDirectory
+        Confirm-Directory -Path $installDirectory
         Write-TraceDetail "Copying portable archive contents from '$sourceRoot' to '$installDirectory'."
         Get-ChildItem -LiteralPath $sourceRoot -Force | ForEach-Object {
             Copy-Item -LiteralPath $_.FullName -Destination $installDirectory -Recurse -Force
         }
 
-        Add-InstallerPathEntries -Tool $Tool -Installer $Installer -Persist
+        Add-InstallerPathEntry -Tool $Tool -Installer $Installer -Persist
     } finally {
         if (Test-Path -LiteralPath $tempRoot) {
             Write-TraceDetail "Removing temporary directory '$tempRoot'."
@@ -1479,6 +1488,7 @@ function Install-GitHubReleaseAssetTool {
 }
 
 function Install-DirectInstallerTool {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [Parameter(Mandatory = $true)]
         [object]$Tool,
@@ -1497,8 +1507,8 @@ function Install-DirectInstallerTool {
     $installerPath = Join-Path -Path $tempRoot -ChildPath 'installer.exe'
 
     try {
-        Ensure-Directory -Path $tempRoot
-        Ensure-Directory -Path $installDirectory
+        Confirm-Directory -Path $tempRoot
+        Confirm-Directory -Path $installDirectory
         Write-TraceDetail "Downloading installer for '$($Tool['Id'])' from '$url' to '$installerPath'."
         Invoke-WebRequest -Uri $url -OutFile $installerPath -UseBasicParsing
 
@@ -1518,7 +1528,7 @@ function Install-DirectInstallerTool {
         }
 
         Write-TraceDetail "Installer exited successfully with code $($process.ExitCode)."
-        Add-InstallerPathEntries -Tool $Tool -Installer $Installer -Persist
+        Add-InstallerPathEntry -Tool $Tool -Installer $Installer -Persist
     } finally {
         if (Test-Path -LiteralPath $tempRoot) {
             Write-TraceDetail "Removing temporary directory '$tempRoot'."
@@ -1586,7 +1596,7 @@ function Test-ToolAvailable {
         return [bool](Get-Module -ListAvailable -Name $package)
     }
 
-    Add-InstallerPathEntries -Tool $Tool -Installer $Installer
+    Add-InstallerPathEntry -Tool $Tool -Installer $Installer
     $executable = Get-ToolExecutable -Tool $Tool -Installer $Installer
     Write-TraceDetail "Checking executable availability for '$($Tool['Id'])': $executable"
     return [bool](Get-AvailableCommand -Name $executable)
@@ -1606,7 +1616,7 @@ function Get-ToolVersion {
         return Get-PowerShellModuleVersion -Name $package
     }
 
-    Add-InstallerPathEntries -Tool $Tool -Installer $Installer
+    Add-InstallerPathEntry -Tool $Tool -Installer $Installer
     $executable = Get-ToolExecutable -Tool $Tool -Installer $Installer
     $command = Get-AvailableCommand -Name $executable
     if ($null -eq $command) {
@@ -1658,7 +1668,7 @@ function Get-ToolDirectory {
         return Format-DirectoryPath -Directory $module.ModuleBase
     }
 
-    Add-InstallerPathEntries -Tool $Tool -Installer $Installer
+    Add-InstallerPathEntry -Tool $Tool -Installer $Installer
     $executable = Get-ToolExecutable -Tool $Tool -Installer $Installer
     $command = Get-AvailableCommand -Name $executable
     if ($null -eq $command) {
@@ -1742,7 +1752,7 @@ function Test-DirectoryInPath {
     return $false
 }
 
-function Get-UserPathEntries {
+function Get-UserPathEntry {
     $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
     if ([string]::IsNullOrWhiteSpace($userPath)) {
         return @()
@@ -1778,13 +1788,13 @@ function Test-PathEntryUnderDirectory {
     )
 }
 
-function Get-ObsoleteUserPathEntries {
+function Get-ObsoleteUserPathEntry {
     param(
         [Parameter(Mandatory = $true)]
         [object[]]$Results
     )
 
-    $pathEntries = @(Get-UserPathEntries)
+    $pathEntries = @(Get-UserPathEntry)
     $obsoleteEntries = [System.Collections.Generic.List[string]]::new()
     $seenEntries = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
@@ -1973,6 +1983,7 @@ function Get-RemovalVersion {
 }
 
 function Invoke-RemoveMode {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [Parameter(Mandatory = $true)]
         [object[]]$Tools
@@ -2094,7 +2105,7 @@ function Invoke-RemoveMode {
         )
     }
 
-    $obsoletePathEntries = @(Get-ObsoleteUserPathEntries -Results $results)
+    $obsoletePathEntries = @(Get-ObsoleteUserPathEntry -Results $results)
     if ($obsoletePathEntries.Count -gt 0) {
         Write-Output ''
         Write-Output 'Obsolete PATH entries still present in the current user PATH:'
