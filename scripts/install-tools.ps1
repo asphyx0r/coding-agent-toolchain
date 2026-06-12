@@ -1,4 +1,4 @@
-[CmdletBinding(SupportsShouldProcess = $true)]
+[CmdletBinding(SupportsShouldProcess = $true, PositionalBinding = $false)]
 param(
     [Alias('c')]
     [string]$ConfigPath = '',
