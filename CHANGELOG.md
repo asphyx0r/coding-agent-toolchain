@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.1.3
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| 4eb6d6e | fix: validate installer manifest keys | asphyx |
+
 ## v1.1.2
 
 | References | Description | Author(s) |

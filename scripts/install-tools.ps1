@@ -37,7 +37,7 @@ if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
     $ConfigPath = Join-Path -Path $ScriptRoot -ChildPath '..\config\tools.yaml'
 }
 
-Set-Variable -Name ToolVersion -Value 'v1.1.2' -Option Constant -Scope Script
+Set-Variable -Name ToolVersion -Value 'v1.1.3' -Option Constant -Scope Script
 $VerboseTraceEnabled = [bool]$VerboseTrace -or ($VerbosePreference -ne 'SilentlyContinue')
 $DryRunEnabled = [bool]$DryRun
 $RemoveEnabled = [bool]$Remove
