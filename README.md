@@ -266,8 +266,8 @@ Invoke-ScriptAnalyzer -Path .\scripts\install-tools.ps1
 ## Versioning
 
 Scripts report the internal version for the latest tagged release. The latest
-tagged release documented in `CHANGELOG.md` is `v1.1.1`, and both script
-implementations currently report `v1.1.1`. `CHANGELOG.md` uses tag sections for
+tagged release documented in `CHANGELOG.md` is `v1.1.2`, and both script
+implementations currently report `v1.1.2`. `CHANGELOG.md` uses tag sections for
 release entries.
 
 ## Contributing

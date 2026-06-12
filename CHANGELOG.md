@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.1.2
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| 901f126 | fix: resolve audit findings | asphyx |
+| 19a1124 | docs: align agent rule guidance | asphyx |
+
 ## v1.1.1
 
 | References | Description | Author(s) |
