@@ -5,6 +5,17 @@ software development on Windows and Linux. It reads a declarative YAML manifest,
 checks whether each target program is available, installs missing tools with
 approved installer types, and reports the exact versions found after execution.
 
+## Prerequisites
+
+- Windows: Windows PowerShell or PowerShell, with permission to write under the
+  current user's profile.
+- Linux: Bash, with permission to write under the current user's home directory.
+- Missing tools require network access to the installer sources declared in
+  `config/tools.yaml`.
+- Installer kinds may require their matching platform commands when selected,
+  such as `winget`, `choco`, `brew`, `pwsh`, `python`, `npm`, or a C compiler
+  for Linux source builds.
+
 ## Installation
 
 Clone this repository and run the platform script from the repository root.
@@ -74,8 +85,9 @@ emptying or removing the shared command directory.
 
 Passing `--prefix <directory>` changes the root used for these defaults to
 `<directory>\coding-agent-toolchain\`. For example, tool payloads then use
-`<directory>\coding-agent-toolchain\<tool>\`, and command shims use the
-matching `bin\` directory under each tool payload.
+`<directory>\coding-agent-toolchain\<tool>\`, and command discovery uses
+prefix-scoped command locations under each tool payload instead of the shared
+shim directory.
 
 ### Linux
 
@@ -207,11 +219,14 @@ The manifest schema is intentionally small:
 
 - `schema_version` must be `1`.
 - `tools` is an ordered list of tool definitions.
-- each tool defines `id`, `executable`, and `installers`.
+- each tool in the canonical manifest defines `id`, `executable`, and
+  `installers`.
 - `version_args` defines the executable arguments used for version checks when
   the installer does not have a dedicated version lookup.
 - `installers` can define `windows` and `linux` blocks. Each platform block
-  uses a `kind` plus the fields required by that installer kind.
+  uses a `kind` plus the fields required by that installer kind. A missing
+  platform block is treated as unavailable and reported as skipped by that
+  platform script.
 
 Supported installer kinds are `winget`, `npm_global`, `chocolatey`, `brew`,
 `pip`, `python_user`, `uv_tool`, `powershell_gallery`, `conda_forge`,
@@ -221,7 +236,7 @@ Supported installer kinds are `winget`, `npm_global`, `chocolatey`, `brew`,
 Common installer fields include `package`, `url`, `owner`, `repo`,
 `asset_pattern`, `file_name`, `archive_kind`, `archive_path`, `executable`,
 `install_dir_name`, `bin_path`, `source_dir`, `install_args`, and
-`target_arg_prefix`. Unsupported fields are rejected by the scripts.
+`target_arg_prefix`. Unsupported installer keys are rejected by the scripts.
 
 The manifest intentionally uses current upstream sources for some installers,
 including `latest`, `stable`, and latest GitHub release assets. This project

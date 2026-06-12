@@ -143,6 +143,23 @@ $UserRoot = if ([string]::IsNullOrWhiteSpace($InstallPrefix)) {
 $BinDir = Join-Path -Path $UserRoot -ChildPath 'bin'
 $NpmPrefix = Join-Path -Path $UserRoot -ChildPath 'npm'
 $ChocolateyInstallDir = Join-Path -Path $UserRoot -ChildPath 'chocolatey'
+$SupportedInstallerKeys = @(
+    'kind',
+    'package',
+    'url',
+    'owner',
+    'repo',
+    'asset_pattern',
+    'file_name',
+    'archive_kind',
+    'archive_path',
+    'executable',
+    'install_dir_name',
+    'bin_path',
+    'source_dir',
+    'install_args',
+    'target_arg_prefix'
+)
 
 if ($VerboseTraceEnabled) {
     $VerbosePreference = 'Continue'
@@ -334,6 +351,10 @@ function Read-ToolManifest {
             }
 
             $key = $matches[1]
+            if ($key -notin $SupportedInstallerKeys) {
+                throw "Unsupported installer key '$key' at manifest line $lineNumber."
+            }
+
             $currentTool['Installers'][$currentOs][$key] = ConvertFrom-ManifestValue -Value $matches[2]
             continue
         }
