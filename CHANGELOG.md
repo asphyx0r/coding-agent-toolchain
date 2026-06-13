@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.1.5
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| 63b4398 | docs: add release test plan | asphyx |
+
 ## v1.1.4
 
 | References | Description | Author(s) |
