@@ -257,6 +257,10 @@ markdownlint-cli2 "**/*.md"
 yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml
 ```
 
+The complete repository test plan is documented in
+[`TEST_PLAN.md`](TEST_PLAN.md). It defines the required CLI, manifest, installer,
+path, removal, safety-boundary, and release-readiness coverage.
+
 When scripts change, also run the script checks:
 
 ```powershell
@@ -280,10 +284,8 @@ Invoke-ScriptAnalyzer -Path .\scripts\install-tools.ps1
 
 ## Versioning
 
-Scripts report the internal version for the latest tagged release. The latest
-tagged release documented in `CHANGELOG.md` is `v1.1.3`, and both script
-implementations currently report `v1.1.3`. `CHANGELOG.md` uses tag sections for
-release entries.
+Scripts report the internal version embedded in each platform implementation.
+`CHANGELOG.md` uses tag sections for release entries.
 
 ## Contributing
 
