@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.1.6
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| ad6de70 | fix: enforce prefix validation | asphyx |
+
 ## v1.1.5
 
 | References | Description | Author(s) |
