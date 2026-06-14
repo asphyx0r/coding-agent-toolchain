@@ -1,0 +1,33 @@
+# Repository-local test/runtime artifacts.
+/.test-runtime/
+
+# Optional in-repository install prefix created by --prefix.
+/coding-agent-toolchain/
+
+# Local environment files.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs and temporary editor/merge leftovers.
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*~
+
+# OS metadata.
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor state.
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/

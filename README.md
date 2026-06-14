@@ -46,9 +46,10 @@ Supported arguments:
   profiles, `PATH`, or installed packages.
 - `-c <path>`, `--config <path>`: reads a custom YAML manifest.
 - `-p <directory>`, `--prefix <directory>`: installs missing tools under
-  `<directory>/coding-agent-toolchain/<tool>/`. The prefix must stay inside the
-  current user's profile or home directory and overrides all default
-  installation directories used by the selected platform script.
+  `<directory>/coding-agent-toolchain/<tool>/`. The prefix directory must
+  already exist, stay inside the current user's profile or home directory, and
+  overrides all default installation directories used by the selected platform
+  script.
 - `--check-path`: verifies and prints whether resolved tool directories are
   available in the current user's `PATH`.
 - `-r`, `--remove`: removes tools that were installed by Coding Agent Toolchain.

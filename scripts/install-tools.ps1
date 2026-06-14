@@ -131,6 +131,10 @@ if (-not [string]::IsNullOrWhiteSpace($Prefix)) {
         throw '--prefix must point inside the current user profile to preserve user-scoped installation.'
     }
 
+    if (-not (Test-Path -LiteralPath $normalizedInstallPrefix -PathType Container)) {
+        throw '--prefix must point to an existing directory inside the current user profile.'
+    }
+
     $InstallPrefix = $normalizedInstallPrefix
 }
 
@@ -336,6 +340,10 @@ function Read-ToolManifest {
             $currentSection = 'installers'
             $currentOs = $null
             continue
+        }
+
+        if ($line -match '^      ([a-z_]+):\s*(.+)$' -and $currentSection -eq 'installers') {
+            throw "Installer property without platform at manifest line $lineNumber."
         }
 
         if ($line -match '^      (windows|linux):\s*$') {

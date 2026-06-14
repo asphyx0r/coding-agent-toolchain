@@ -193,6 +193,11 @@ read_manifest() {
       continue
     fi
 
+    if [[ "${line}" =~ ^[[:space:]]{6}([a-z_]+):[[:space:]]*(.+)$ && "${current_section}" == "installers" ]]; then
+      log_error "Installer property without platform at manifest line ${line_number}."
+      return 1
+    fi
+
     if [[ "${line}" =~ ^[[:space:]]{6}(windows|linux):[[:space:]]*$ ]]; then
       current_os="${BASH_REMATCH[1]}"
       current_section="installer"
@@ -2266,6 +2271,11 @@ validate_prefix_root() {
     prefix_root="$(normalize_prefix_root "$(pwd -P)/${prefix_root}")"
   fi
 
+  if [[ ! -d "${prefix_root}" ]]; then
+    log_error "--prefix must point to an existing directory inside the current user's HOME."
+    return 2
+  fi
+
   if [[ "${prefix_root}" == "${HOME}" || "${prefix_root}" == "${HOME}/"* ]]; then
     return 0
   fi
@@ -2330,6 +2340,8 @@ main() {
   if [[ -n "${prefix_root}" ]]; then
     log_info "Using installation root: $(toolchain_user_root)"
   fi
+  log_verbose "User root: $(toolchain_user_root)"
+  log_verbose "Payload root: $(toolchain_payload_root)"
   read_manifest "${config_path}"
   log_info "Loaded ${#tool_ids[@]} tool entries from the manifest."
   if ((remove_mode)); then
