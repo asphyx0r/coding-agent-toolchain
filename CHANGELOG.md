@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.2.0
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| 10cd2a9 | feat(tools): add bats-core and pester | asphyx |
+
 ## v1.1.6
 
 | References | Description | Author(s) |
