@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.2.1
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| c03be77 | fix: normalize CLI log levels | asphyx |
+
 ## v1.2.0
 
 | References | Description | Author(s) |
