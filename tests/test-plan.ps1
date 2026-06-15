@@ -90,7 +90,7 @@ function Register-CheckWarning {
     )
 
     $Script:Warnings.Add($Message)
-    Write-Output "[WARN] $Message"
+    Write-Output "[WARN ] $Message"
 }
 
 function Initialize-RuntimeDirectory {
@@ -457,6 +457,24 @@ function Test-ResultText {
         -FailureDetail "Expected output to contain '$ExpectedText'."
 }
 
+function Test-ResultTextAbsent {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Result,
+
+        [Parameter(Mandatory = $true)]
+        [string]$UnexpectedText
+    )
+
+    Test-CheckCondition `
+        -Name $Name `
+        -Condition ($null -ne $Result -and -not $Result.Output.Contains($UnexpectedText)) `
+        -FailureDetail "Expected output not to contain '$UnexpectedText'."
+}
+
 function Test-ExitCode {
     param(
         [Parameter(Mandatory = $true)]
@@ -757,6 +775,24 @@ function Test-CliModeOption {
     Test-ExitCode -Name "CLI-002 ${Platform}: default mode exits zero" -Result $defaultResult -ExpectedExitCode 0
     Test-ResultText -Name "CLI-002 ${Platform}: default config is used" -Result $defaultResult -ExpectedText 'Using configuration:'
     Test-ResultText -Name "CLI-002 ${Platform}: tools are processed" -Result $defaultResult -ExpectedText 'Loaded 1 tool entries'
+    Test-ResultText -Name "CLI-002 ${Platform}: info loglevel is padded" -Result $defaultResult -ExpectedText '[INFO ]'
+    Test-ResultText -Name "CLI-002 ${Platform}: warn loglevel is padded" -Result $defaultResult -ExpectedText '[WARN ]'
+    Test-ResultTextAbsent `
+        -Name "CLI-002 ${Platform}: old info loglevel is absent" `
+        -Result $defaultResult `
+        -UnexpectedText '[INFO]'
+    Test-ResultTextAbsent `
+        -Name "CLI-002 ${Platform}: old warn loglevel is absent" `
+        -Result $defaultResult `
+        -UnexpectedText '[WARN]'
+    Test-ResultTextAbsent `
+        -Name "CLI-002 ${Platform}: English warning prefix is absent" `
+        -Result $defaultResult `
+        -UnexpectedText 'Warning:'
+    Test-ResultTextAbsent `
+        -Name "CLI-002 ${Platform}: localized warning prefix is absent" `
+        -Result $defaultResult `
+        -UnexpectedText 'AVERTISSEMENT'
 
     foreach ($verboseOption in @('-v', '--verbose')) {
         $layout = Initialize-IsolatedScriptLayout -ManifestContent (Get-DryRunManifestContent)
@@ -778,6 +814,7 @@ function Test-CliModeOption {
     Test-ExitCode -Name "CLI-009 ${Platform}: dry-run exits zero" -Result $dryRunResult -ExpectedExitCode 0
     Test-ResultText -Name "CLI-009 ${Platform}: dry-run enabled" -Result $dryRunResult -ExpectedText 'Dry-run mode enabled'
     Test-ResultText -Name "CLI-009 ${Platform}: dry-run status" -Result $dryRunResult -ExpectedText 'DryRun'
+    Test-ResultText -Name "CLI-009 ${Platform}: dry-run info loglevel is padded" -Result $dryRunResult -ExpectedText '[INFO ]'
 
     foreach ($removeOption in @('-r', '--remove')) {
         $result = Invoke-DirectCliCase -Platform $Platform -ManifestContent (Get-UnavailableManifestContent) -Arguments @($removeOption)
@@ -829,6 +866,13 @@ function Test-CliCheckPathAndInvalidOption {
         -Arguments @('--unknown-option')
     Test-NonzeroExitCode -Name "CLI-014 ${Platform}: unknown option fails" -Result $unknownResult
     Test-ResultText -Name "CLI-014 ${Platform}: unknown option diagnostic" -Result $unknownResult -ExpectedText 'Unknown option'
+    if ($Platform -eq 'linux') {
+        Test-ResultText -Name 'CLI-014 linux: error loglevel is normalized' -Result $unknownResult -ExpectedText '[ERROR]'
+        Test-ResultTextAbsent `
+            -Name 'CLI-014 linux: English error prefix is absent' `
+            -Result $unknownResult `
+            -UnexpectedText 'Error:'
+    }
 
     $layout = Initialize-IsolatedScriptLayout -ManifestContent (Get-DryRunManifestContent)
     $configPath = Get-PlatformPathArgument -Platform $Platform -Path $layout.ManifestPath

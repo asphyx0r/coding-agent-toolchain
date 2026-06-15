@@ -155,7 +155,8 @@ Passing `--prefix <directory>` changes the root used for these defaults to
   falls back to conda-forge through user-scoped micromamba when it is not.
 - Supports dry runs that simulate successful execution without making changes.
 - Prints visible progress for each major action, with detailed traces when
-  verbose output is enabled.
+  verbose output is enabled. Log prefixes use padded log4j-style levels such
+  as `[INFO ]`, `[WARN ]`, `[ERROR]`, and `[DEBUG]`.
 - Runs each configured version command and prints the exact version output in
   the final summary.
 - Optionally verifies resolved tool directories in the current user's `PATH`.

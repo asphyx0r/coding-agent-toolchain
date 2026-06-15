@@ -175,7 +175,7 @@ function Write-Step {
         [string]$Message
     )
 
-    Write-Output "[INFO] $Message"
+    Write-Output "[INFO ] $Message"
 }
 
 function Write-TraceDetail {
@@ -187,6 +187,15 @@ function Write-TraceDetail {
     if ($script:VerboseTraceEnabled) {
         [Console]::Error.WriteLine("[DEBUG] $Message")
     }
+}
+
+function Write-WarningTrace {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    [Console]::Error.WriteLine("[WARN ] $Message")
 }
 
 function Invoke-DryRunTool {
@@ -2039,7 +2048,7 @@ function Invoke-RemoveMode {
 
         if (-not (Test-ToolSupportedOnPlatform -Installer $installer)) {
             $detail = Get-UnsupportedToolMessage -Tool $tool
-            Write-Warning $detail
+            Write-WarningTrace $detail
             $results.Add([pscustomobject]@{
                 Tool = $tool['Id']
                 Status = 'Skipped'
@@ -2097,7 +2106,7 @@ function Invoke-RemoveMode {
             if ([string]::IsNullOrWhiteSpace($detail)) {
                 $detail = $errorRecord.Exception.Message
             }
-            Write-Warning "Tool '$($tool['Id'])' was not removed: $detail"
+            Write-WarningTrace "Tool '$($tool['Id'])' was not removed: $detail"
         }
 
         $results.Add([pscustomobject]@{
@@ -2196,7 +2205,7 @@ foreach ($tool in $tools) {
 
     if (-not (Test-ToolSupportedOnPlatform -Installer $installer)) {
         $detail = Get-UnsupportedToolMessage -Tool $tool
-        Write-Warning $detail
+        Write-WarningTrace $detail
         $results.Add([pscustomobject]@{
             Tool = $tool['Id']
             Status = 'Skipped'
@@ -2230,12 +2239,12 @@ foreach ($tool in $tools) {
             } catch {
                 $needsInstall = $true
                 $detail = "Existing version check failed: $($_.Exception.Message)"
-                Write-Warning $detail
+                Write-WarningTrace $detail
             }
         }
 
         if ($needsInstall) {
-            Write-Warning "Tool '$($tool['Id'])' is not installed. Installing it now."
+            Write-WarningTrace "Tool '$($tool['Id'])' is not installed. Installing it now."
             $status = 'Installed'
             Write-Step "Installing tool '$($tool['Id'])'."
             Install-Tool -Tool $tool -Installer $installer
@@ -2256,7 +2265,7 @@ foreach ($tool in $tools) {
     } catch {
         $status = 'Failed'
         $detail = $_.Exception.Message
-        Write-Warning "Tool '$($tool['Id'])' failed: $detail"
+        Write-WarningTrace "Tool '$($tool['Id'])' failed: $detail"
     }
 
     $results.Add([pscustomobject]@{

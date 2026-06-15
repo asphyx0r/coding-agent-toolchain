@@ -45,11 +45,11 @@ usage() {
 }
 
 log_info() {
-  printf '[INFO] %s\n' "$*" >&2
+  printf '[INFO ] %s\n' "$*" >&2
 }
 
 log_warning() {
-  printf 'Warning: %s\n' "$*" >&2
+  printf '[WARN ] %s\n' "$*" >&2
 }
 
 log_verbose() {
@@ -59,7 +59,7 @@ log_verbose() {
 }
 
 log_error() {
-  printf 'Error: %s\n' "$*" >&2
+  printf '[ERROR] %s\n' "$*" >&2
 }
 
 trim_manifest_value() {
