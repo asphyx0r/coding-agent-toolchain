@@ -200,7 +200,7 @@ external commands. The expected command arguments are part of the assertion.
 | `DISPATCH-002` | both | `python_user` | Uses Python user installation logic or the platform-specific supported equivalent. |
 | `DISPATCH-003` | both | `uv_tool` | Uses the user-scoped uv tool path or reports unsupported prerequisites clearly. |
 | `DISPATCH-004` | both | `npm_global` | Uses the managed npm prefix and verifies the npm-installed command. |
-| `DISPATCH-005` | both | `powershell_gallery` | Detects and installs the current-user PowerShell module through `pwsh` or PowerShell. |
+| `DISPATCH-005` | both | `powershell_gallery` | Detects and installs the current-user PowerShell module through `pwsh` or PowerShell; Linux skips the tool when `pwsh` is unavailable or unusable. |
 | `DISPATCH-006` | both | `brew` | Calls the brew installer branch or reports platform-specific unavailability. |
 | `DISPATCH-007` | both | `winget` | Calls the winget branch or reports platform-specific unavailability. |
 | `DISPATCH-008` | both | `chocolatey` | Calls the Chocolatey branch and treats user-scope failure as installation failure. |
@@ -290,6 +290,9 @@ external commands. The expected command arguments are part of the assertion.
 
 ### Canonical Manifest Coverage Tests
 
+In this table, `unavailable` means the canonical manifest omits that platform's
+installer block and the platform script skips the tool.
+
 | ID | Tool | Windows kind | Linux kind | Required direct coverage |
 | --- | --- | --- | --- | --- |
 | `TOOL-001` | `yamllint` | `pip` | `pip` | `DISPATCH-001`, `INSTALL-001` through `INSTALL-009` |
@@ -309,6 +312,8 @@ external commands. The expected command arguments are part of the assertion.
 | `TOOL-015` | `ruff` | `pip` | `pip` | `DISPATCH-001` |
 | `TOOL-016` | `editorconfig-checker` | `github_release_asset` | `github_release_asset` | `DISPATCH-010`, `ARCHIVE-001`, `ARCHIVE-003`, `ARCHIVE-008` |
 | `TOOL-017` | `psscriptanalyzer` | `powershell_gallery` | `powershell_gallery` | `DISPATCH-005` |
+| `TOOL-018` | `bats-core` | `unavailable` | `npm_global` | `MANIFEST-009`, `INSTALL-007`, `DISPATCH-004` |
+| `TOOL-019` | `pester` | `powershell_gallery` | `powershell_gallery` | `DISPATCH-005` |
 
 ### Documentation Consistency Tests
 

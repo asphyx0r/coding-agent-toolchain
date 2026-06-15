@@ -269,3 +269,22 @@ tools:
       linux:
         kind: powershell_gallery
         package: PSScriptAnalyzer
+
+  - id: bats-core
+    executable: bats
+    version_args:
+      - --version
+    installers:
+      linux:
+        kind: npm_global
+        package: bats
+
+  - id: pester
+    executable: Invoke-Pester
+    installers:
+      windows:
+        kind: powershell_gallery
+        package: Pester
+      linux:
+        kind: powershell_gallery
+        package: Pester

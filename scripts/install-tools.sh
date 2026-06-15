@@ -319,6 +319,23 @@ unsupported_tool_detail() {
     "$(platform_display_name)"
 }
 
+is_pwsh_usable() {
+  command -v pwsh >/dev/null 2>&1 || return 1
+  pwsh -NoProfile -Command "\$PSVersionTable.PSVersion.ToString()" >/dev/null 2>&1
+}
+
+missing_prerequisite_detail() {
+  local index="$1"
+
+  if [[ "${installer_kinds[index]}" == "powershell_gallery" ]] && ! is_pwsh_usable; then
+    printf "Tool '%s' requires pwsh on Linux, but pwsh is not available or usable. Skipping installation." \
+      "${tool_ids[index]}"
+    return 0
+  fi
+
+  return 1
+}
+
 dry_run_tool() {
   local index="$1"
   local executable
@@ -2386,6 +2403,13 @@ main() {
       details[index]="Dry-run: simulated successful execution without modifications."
       continue
     fi
+
+    if details[index]="$(missing_prerequisite_detail "${index}")"; then
+      statuses[index]="Skipped"
+      log_warning "${details[index]}"
+      continue
+    fi
+    details[index]=""
 
     if is_tool_available "${index}"; then
       if directory="$(get_tool_directory "${index}" 2>/dev/null)"; then

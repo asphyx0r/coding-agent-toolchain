@@ -139,10 +139,11 @@ Passing `--prefix <directory>` changes the root used for these defaults to
 
 ## Features
 
-- Checks and installs these validation tools: `yamllint`, `shfmt`,
-  `yq`, `jq`, `markdownlint-cli2`, `commitlint`, ImageMagick, Ghostscript,
-  `shellcheck`, `sqlfluff`, `pre-commit`, Gitleaks, `betterleaks`,
-  GitHub CLI, `ruff`, `editorconfig-checker`, and PSScriptAnalyzer.
+- Checks and installs these validation tools where supported on the target
+  platform: `yamllint`, `shfmt`, `yq`, `jq`, `markdownlint-cli2`, `commitlint`,
+  ImageMagick, Ghostscript, `shellcheck`, `sqlfluff`, `pre-commit`, Gitleaks,
+  `betterleaks`, GitHub CLI, `ruff`, `editorconfig-checker`, PSScriptAnalyzer,
+  `bats-core`, and Pester.
 - Supports declarative installer kinds for `winget`, `npm`, Chocolatey,
   `brew`, `pip`, PowerShell Gallery modules, conda-forge packages through
   user-scoped micromamba, direct binaries, portable archives, extracted
@@ -166,8 +167,13 @@ Chocolatey support is available for manifests that need it, but package
 behavior depends on each Chocolatey package. Packages that cannot honor a
 user-scoped installation are reported as installation failures.
 
-Installing PSScriptAnalyzer on Linux requires a usable `pwsh` command because
-PowerShell Gallery modules are installed through PowerShell.
+Installing PowerShell Gallery modules on Linux, such as PSScriptAnalyzer and
+Pester, requires a usable `pwsh` command because PowerShell Gallery modules are
+installed through PowerShell. When `pwsh` is not available or not usable, the
+Linux script reports those tools as skipped instead of failing the full run.
+
+`bats-core` is configured only for Linux. On Windows, the manifest omits the
+`bats-core` Windows installer so the Windows script reports it as skipped.
 
 ## Removal Safety
 
@@ -209,6 +215,8 @@ download URL.
 - `ruff`: [Ruff project](https://github.com/astral-sh/ruff)
 - `editorconfig-checker`: [editorconfig-checker project](https://github.com/editorconfig-checker/editorconfig-checker)
 - PSScriptAnalyzer: [PSScriptAnalyzer project](https://github.com/PowerShell/PSScriptAnalyzer)
+- `bats-core`: [bats-core project](https://github.com/bats-core/bats-core)
+- Pester: [Pester project](https://github.com/pester/Pester)
 
 ## Configuration
 

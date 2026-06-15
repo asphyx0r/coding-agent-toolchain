@@ -400,7 +400,7 @@ function Invoke-IsolatedToolScript {
             $wrapperLines += "export $key=$(ConvertTo-BashSingleQuotedLiteral -Value ([string]$Environment[$key]))"
         }
 
-        $wrapperLines += 'exec bash ' + (ConvertTo-BashSingleQuotedLiteral -Value $bashScript) + ' "$@"'
+        $wrapperLines += 'exec "$BASH" ' + (ConvertTo-BashSingleQuotedLiteral -Value $bashScript) + ' "$@"'
         [IO.File]::WriteAllText($wrapperScript, ($wrapperLines -join "`n") + "`n", [Text.Encoding]::ASCII)
         $wrapperBashScript = ConvertTo-BashPath -Path $wrapperScript
         return Invoke-CommandCapture `
@@ -975,9 +975,9 @@ function Test-ManifestLoadAndSchema {
     $canonicalManifest = Get-RepositoryText -RelativePath 'config/tools.yaml'
     $canonicalResult = Invoke-ManifestCase -Platform $Platform -ManifestContent $canonicalManifest -DryRun
     Test-ExitCode -Name "MANIFEST-001 ${Platform}: canonical manifest exits zero" -Result $canonicalResult -ExpectedExitCode 0
-    Test-ResultText -Name "MANIFEST-001 ${Platform}: canonical tool count" -Result $canonicalResult -ExpectedText 'Loaded 17 tool entries'
+    Test-ResultText -Name "MANIFEST-001 ${Platform}: canonical tool count" -Result $canonicalResult -ExpectedText 'Loaded 19 tool entries'
     Test-ResultText -Name "MANIFEST-001 ${Platform}: first tool appears" -Result $canonicalResult -ExpectedText "Checking tool 'yamllint'"
-    Test-ResultText -Name "MANIFEST-001 ${Platform}: last tool appears" -Result $canonicalResult -ExpectedText "Checking tool 'psscriptanalyzer'"
+    Test-ResultText -Name "MANIFEST-001 ${Platform}: last tool appears" -Result $canonicalResult -ExpectedText "Checking tool 'pester'"
 
     $unsupportedSchema = @'
 schema_version: 2
@@ -1976,6 +1976,10 @@ function Initialize-LinuxDirectBinaryFixture {
         '  printf "%s\n" "installed" >"${CAT_TEST_PWSH_STATE}"',
         '  exit 0',
         'fi',
+        'if [[ "${command_text}" == *PSVersionTable.PSVersion* ]]; then',
+        '  printf "%s\n" "7.4.0"',
+        '  exit 0',
+        'fi',
         'if [[ ! -f "${CAT_TEST_PWSH_STATE:?}" ]]; then',
         '  exit 1',
         'fi',
@@ -2523,6 +2527,54 @@ function Test-LinuxCommandBackedInstallerFlow {
             if ($null -ne $fixture) {
                 Clear-LinuxRuntimeDirectory -Path $fixture.RuntimePath
             }
+        }
+    }
+
+    $missingPwshLayout = Initialize-IsolatedScriptLayout -ManifestContent (Get-UnavailableManifestContent)
+    $missingPwshFixture = $null
+    try {
+        $missingPwshFixture = Initialize-LinuxDirectBinaryFixture -Layout $missingPwshLayout
+        $fakeBinDirectory = "$($missingPwshFixture.RuntimePath)/fake-bin"
+        $removePwshCommand = @(
+            'fake_bin=' + (ConvertTo-BashSingleQuotedLiteral -Value $fakeBinDirectory),
+            'real_bash="$(command -v bash)"',
+            'real_dirname="$(command -v dirname)"',
+            'real_mkdir="$(command -v mkdir)"',
+            'real_uname="$(command -v uname)"',
+            'rm -f -- "${fake_bin}/pwsh"',
+            'printf "%s\n" "#!${real_bash}" "exec ${real_dirname} \"\$@\"" >"${fake_bin}/dirname"',
+            'printf "%s\n" "#!${real_bash}" "exec ${real_mkdir} \"\$@\"" >"${fake_bin}/mkdir"',
+            'printf "%s\n" "#!${real_bash}" "exec ${real_uname} \"\$@\"" >"${fake_bin}/uname"',
+            'chmod 755 "${fake_bin}/dirname" "${fake_bin}/mkdir" "${fake_bin}/uname"'
+        ) -join '; '
+        $removePwshResult = Invoke-CommandCapture -Command 'bash' -Arguments @('-lc', $removePwshCommand)
+        if ($removePwshResult.ExitCode -ne 0) {
+            throw "Could not prepare missing-pwsh fixture. Output: $($removePwshResult.Output)"
+        }
+
+        $missingPwshEnvironment = @{}
+        foreach ($key in $missingPwshFixture.Environment.Keys) {
+            $missingPwshEnvironment[$key] = $missingPwshFixture.Environment[$key]
+        }
+        $missingPwshEnvironment['PATH'] = $fakeBinDirectory
+        $missingPwshFixture.Environment = $missingPwshEnvironment
+        $missingPwshResult = Invoke-LinuxDirectBinaryFixture `
+            -Layout $missingPwshLayout `
+            -Fixture $missingPwshFixture `
+            -ManifestContent (Get-LinuxPackageInstallerManifestContent -Kind 'powershell_gallery')
+
+        Test-ExitCode -Name 'DISPATCH-005 linux: missing pwsh exits zero' -Result $missingPwshResult -ExpectedExitCode 0
+        Test-ResultText `
+            -Name 'DISPATCH-005 linux: missing pwsh is skipped' `
+            -Result $missingPwshResult `
+            -ExpectedText 'requires pwsh on Linux'
+        Test-ResultText `
+            -Name 'DISPATCH-005 linux: missing pwsh summary status' `
+            -Result $missingPwshResult `
+            -ExpectedText 'Skipped'
+    } finally {
+        if ($null -ne $missingPwshFixture) {
+            Clear-LinuxRuntimeDirectory -Path $missingPwshFixture.RuntimePath
         }
     }
 }
@@ -3637,14 +3689,16 @@ function Test-CanonicalManifestCoverage {
         }
 
         $row = $matchingRows[0]
+        $windowsKind = if ([string]::IsNullOrWhiteSpace($tool.WindowsKind)) { 'unavailable' } else { $tool.WindowsKind }
+        $linuxKind = if ([string]::IsNullOrWhiteSpace($tool.LinuxKind)) { 'unavailable' } else { $tool.LinuxKind }
         Test-CheckCondition `
             -Name "TOOL Windows kind: $($tool.Id)" `
-            -Condition ($row.WindowsKind -eq $tool.WindowsKind) `
-            -FailureDetail "Expected '$($tool.WindowsKind)' but TEST_PLAN.md says '$($row.WindowsKind)'."
+            -Condition ($row.WindowsKind -eq $windowsKind) `
+            -FailureDetail "Expected '$windowsKind' but TEST_PLAN.md says '$($row.WindowsKind)'."
         Test-CheckCondition `
             -Name "TOOL Linux kind: $($tool.Id)" `
-            -Condition ($row.LinuxKind -eq $tool.LinuxKind) `
-            -FailureDetail "Expected '$($tool.LinuxKind)' but TEST_PLAN.md says '$($row.LinuxKind)'."
+            -Condition ($row.LinuxKind -eq $linuxKind) `
+            -FailureDetail "Expected '$linuxKind' but TEST_PLAN.md says '$($row.LinuxKind)'."
     }
 }
 
