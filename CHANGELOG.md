@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.3.0
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| aec1740 | feat(tools): add codespell installer | asphyx |
+
 ## v1.2.1
 
 | References | Description | Author(s) |
