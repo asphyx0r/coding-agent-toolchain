@@ -288,3 +288,15 @@ tools:
       linux:
         kind: powershell_gallery
         package: Pester
+
+  - id: codespell
+    executable: codespell
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: pip
+        package: codespell
+      linux:
+        kind: pip
+        package: codespell

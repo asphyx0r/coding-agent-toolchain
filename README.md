@@ -143,7 +143,7 @@ Passing `--prefix <directory>` changes the root used for these defaults to
   platform: `yamllint`, `shfmt`, `yq`, `jq`, `markdownlint-cli2`, `commitlint`,
   ImageMagick, Ghostscript, `shellcheck`, `sqlfluff`, `pre-commit`, Gitleaks,
   `betterleaks`, GitHub CLI, `ruff`, `editorconfig-checker`, PSScriptAnalyzer,
-  `bats-core`, and Pester.
+  `bats-core`, Pester, and `codespell`.
 - Supports declarative installer kinds for `winget`, `npm`, Chocolatey,
   `brew`, `pip`, PowerShell Gallery modules, conda-forge packages through
   user-scoped micromamba, direct binaries, portable archives, extracted
@@ -218,6 +218,7 @@ download URL.
 - PSScriptAnalyzer: [PSScriptAnalyzer project](https://github.com/PowerShell/PSScriptAnalyzer)
 - `bats-core`: [bats-core project](https://github.com/bats-core/bats-core)
 - Pester: [Pester project](https://github.com/pester/Pester)
+- `codespell`: [codespell project](https://github.com/codespell-project/codespell)
 
 ## Configuration
 

@@ -20,7 +20,9 @@ $Script:SkipExternalChecksEnabled = [bool]$SkipExternalChecks
 $Script:CheckCount = 0
 $Script:Failures = [System.Collections.Generic.List[string]]::new()
 $Script:Warnings = [System.Collections.Generic.List[string]]::new()
-$Script:RuntimeRoot = Join-Path -Path $RepoRoot -ChildPath '.test-runtime'
+$Script:RuntimeRoot = Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath (
+    'cat-test-runtime-' + [guid]::NewGuid().ToString('N')
+)
 $Script:RuntimeDirectories = [System.Collections.Generic.List[string]]::new()
 $Script:ExitCode = 0
 
@@ -251,12 +253,28 @@ function ConvertTo-BashPath {
     $repoFullPath = [IO.Path]::GetFullPath($RepoRoot).TrimEnd($trimCharacters)
     $isRepositoryPath = [string]::Equals($resolvedPath, $repoFullPath, [StringComparison]::OrdinalIgnoreCase) -or
         $resolvedPath.StartsWith("$repoFullPath$([IO.Path]::DirectorySeparatorChar)", [StringComparison]::OrdinalIgnoreCase)
-    if (-not $isRepositoryPath) {
-        throw "Path '$Path' is outside the repository and cannot be converted safely for bash."
+    if ($isRepositoryPath) {
+        $relativePath = $resolvedPath.Substring($repoFullPath.Length).TrimStart($trimCharacters)
+        return ($repoBashPath.TrimEnd('/') + '/' + ($relativePath -replace '\\', '/'))
     }
 
-    $relativePath = $resolvedPath.Substring($repoFullPath.Length).TrimStart($trimCharacters)
-    return ($repoBashPath.TrimEnd('/') + '/' + ($relativePath -replace '\\', '/'))
+    $tempRootPath = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd($trimCharacters)
+    $isTempPath = $resolvedPath.StartsWith(
+        "$tempRootPath$([IO.Path]::DirectorySeparatorChar)",
+        [StringComparison]::OrdinalIgnoreCase
+    )
+    if ($isTempPath) {
+        $tempRelativePath = $resolvedPath.Substring($tempRootPath.Length).TrimStart($trimCharacters)
+        $tempTopDirectory = ($tempRelativePath -split '[\\/]', 2)[0]
+        if ($tempTopDirectory.StartsWith('cat-test-', [StringComparison]::Ordinal) -and
+            $resolvedPath -match '^([A-Za-z]):[\\/](.*)$') {
+            $drive = $matches[1].ToLowerInvariant()
+            $pathWithoutDrive = $matches[2] -replace '\\', '/'
+            return "/mnt/$drive/$pathWithoutDrive"
+        }
+    }
+
+    throw "Path '$Path' is outside the repository or managed test runtime and cannot be converted safely for bash."
 }
 
 function ConvertTo-BashSingleQuotedLiteral {
@@ -333,7 +351,22 @@ function Initialize-IsolatedScriptLayout {
     $manifestPath = Join-Path -Path $configDirectory -ChildPath 'tools.yaml'
     Copy-Item -LiteralPath (Get-RepositoryPath -RelativePath 'scripts/install-tools.ps1') -Destination $windowsScript
     Copy-Item -LiteralPath (Get-RepositoryPath -RelativePath 'scripts/install-tools.sh') -Destination $linuxScript
-    Set-Content -LiteralPath $manifestPath -Value $ManifestContent -Encoding ASCII
+    for ($attempt = 1; $attempt -le 5; $attempt++) {
+        try {
+            if (-not (Test-Path -LiteralPath $configDirectory -PathType Container)) {
+                New-Item -ItemType Directory -Path $configDirectory -Force | Out-Null
+            }
+
+            Set-Content -LiteralPath $manifestPath -Value $ManifestContent -Encoding ASCII -ErrorAction Stop
+            break
+        } catch {
+            if ($attempt -eq 5) {
+                throw
+            }
+
+            Start-Sleep -Milliseconds 200
+        }
+    }
 
     return [pscustomobject]@{
         Root = $root
@@ -1019,9 +1052,9 @@ function Test-ManifestLoadAndSchema {
     $canonicalManifest = Get-RepositoryText -RelativePath 'config/tools.yaml'
     $canonicalResult = Invoke-ManifestCase -Platform $Platform -ManifestContent $canonicalManifest -DryRun
     Test-ExitCode -Name "MANIFEST-001 ${Platform}: canonical manifest exits zero" -Result $canonicalResult -ExpectedExitCode 0
-    Test-ResultText -Name "MANIFEST-001 ${Platform}: canonical tool count" -Result $canonicalResult -ExpectedText 'Loaded 19 tool entries'
+    Test-ResultText -Name "MANIFEST-001 ${Platform}: canonical tool count" -Result $canonicalResult -ExpectedText 'Loaded 20 tool entries'
     Test-ResultText -Name "MANIFEST-001 ${Platform}: first tool appears" -Result $canonicalResult -ExpectedText "Checking tool 'yamllint'"
-    Test-ResultText -Name "MANIFEST-001 ${Platform}: last tool appears" -Result $canonicalResult -ExpectedText "Checking tool 'pester'"
+    Test-ResultText -Name "MANIFEST-001 ${Platform}: last tool appears" -Result $canonicalResult -ExpectedText "Checking tool 'codespell'"
 
     $unsupportedSchema = @'
 schema_version: 2

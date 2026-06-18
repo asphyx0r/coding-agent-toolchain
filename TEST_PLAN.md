@@ -314,6 +314,7 @@ installer block and the platform script skips the tool.
 | `TOOL-017` | `psscriptanalyzer` | `powershell_gallery` | `powershell_gallery` | `DISPATCH-005` |
 | `TOOL-018` | `bats-core` | `unavailable` | `npm_global` | `MANIFEST-009`, `INSTALL-007`, `DISPATCH-004` |
 | `TOOL-019` | `pester` | `powershell_gallery` | `powershell_gallery` | `DISPATCH-005` |
+| `TOOL-020` | `codespell` | `pip` | `pip` | `DISPATCH-001` |
 
 ### Documentation Consistency Tests
 
