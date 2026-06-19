@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.4.0
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| a3a354a | feat(tools): add action runner tools | asphyx |
+| 3adf58d | feat(tools): add local-action support | asphyx |
+
 ## v1.3.0
 
 | References | Description | Author(s) |
