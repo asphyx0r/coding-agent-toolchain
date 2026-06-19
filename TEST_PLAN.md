@@ -188,6 +188,7 @@ removal tests; they do not replace those tests.
 | `MANIFEST-013` | both | Existing YAML config file is present but unreadable by the current user. | Exit nonzero with a clear unreadable-config message before any tool entry is processed. |
 | `MANIFEST-014` | both | Existing config path points to a non-YAML file such as plain text, JSON, binary content, or another unsupported format. | Exit nonzero with a clear invalid-manifest or non-YAML message before any tool entry is processed. |
 | `MANIFEST-015` | both | Existing config file has YAML extension but invalid YAML structure for this manifest contract. | Exit nonzero with a clear invalid-manifest message before any tool entry is processed. |
+| `MANIFEST-016` | both | Existing command with `version_check: command_available`. | The command is treated as present without executing it as a version command. |
 
 ### Installer Dispatch Tests
 
@@ -309,12 +310,14 @@ installer block and the platform script skips the tool.
 | `TOOL-012` | `gitleaks` | `github_release_asset` | `github_release_asset` | `DISPATCH-010`, `ARCHIVE-001`, `ARCHIVE-003`, `ARCHIVE-008` |
 | `TOOL-013` | `betterleaks` | `github_release_asset` | `github_release_asset` | `DISPATCH-010`, `ARCHIVE-001`, `ARCHIVE-003`, `ARCHIVE-008` |
 | `TOOL-014` | `github-cli` | `github_release_asset` | `github_release_asset` | `DISPATCH-010`, `ARCHIVE-001`, `ARCHIVE-003`, `ARCHIVE-008` |
-| `TOOL-015` | `ruff` | `pip` | `pip` | `DISPATCH-001` |
-| `TOOL-016` | `editorconfig-checker` | `github_release_asset` | `github_release_asset` | `DISPATCH-010`, `ARCHIVE-001`, `ARCHIVE-003`, `ARCHIVE-008` |
-| `TOOL-017` | `psscriptanalyzer` | `powershell_gallery` | `powershell_gallery` | `DISPATCH-005` |
-| `TOOL-018` | `bats-core` | `unavailable` | `npm_global` | `MANIFEST-009`, `INSTALL-007`, `DISPATCH-004` |
-| `TOOL-019` | `pester` | `powershell_gallery` | `powershell_gallery` | `DISPATCH-005` |
-| `TOOL-020` | `codespell` | `pip` | `pip` | `DISPATCH-001` |
+| `TOOL-015` | `tsx` | `npm_global` | `npm_global` | `DISPATCH-004` |
+| `TOOL-016` | `local-action` | `npm_global` | `npm_global` | `DISPATCH-004`, `MANIFEST-016` |
+| `TOOL-017` | `ruff` | `pip` | `pip` | `DISPATCH-001` |
+| `TOOL-018` | `editorconfig-checker` | `github_release_asset` | `github_release_asset` | `DISPATCH-010`, `ARCHIVE-001`, `ARCHIVE-003`, `ARCHIVE-008` |
+| `TOOL-019` | `psscriptanalyzer` | `powershell_gallery` | `powershell_gallery` | `DISPATCH-005` |
+| `TOOL-020` | `bats-core` | `unavailable` | `npm_global` | `MANIFEST-009`, `INSTALL-007`, `DISPATCH-004` |
+| `TOOL-021` | `pester` | `powershell_gallery` | `powershell_gallery` | `DISPATCH-005` |
+| `TOOL-022` | `codespell` | `pip` | `pip` | `DISPATCH-001` |
 
 ### Documentation Consistency Tests
 

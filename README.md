@@ -142,8 +142,9 @@ Passing `--prefix <directory>` changes the root used for these defaults to
 - Checks and installs these validation tools where supported on the target
   platform: `yamllint`, `shfmt`, `yq`, `jq`, `markdownlint-cli2`, `commitlint`,
   ImageMagick, Ghostscript, `shellcheck`, `sqlfluff`, `pre-commit`, Gitleaks,
-  `betterleaks`, GitHub CLI, `ruff`, `editorconfig-checker`, PSScriptAnalyzer,
-  `bats-core`, Pester, and `codespell`.
+  `betterleaks`, GitHub CLI, `tsx`, `local-action`, `ruff`,
+  `editorconfig-checker`, PSScriptAnalyzer, `bats-core`, Pester, and
+  `codespell`.
 - Supports declarative installer kinds for `winget`, `npm`, Chocolatey,
   `brew`, `pip`, PowerShell Gallery modules, conda-forge packages through
   user-scoped micromamba, direct binaries, portable archives, extracted
@@ -157,10 +158,11 @@ Passing `--prefix <directory>` changes the root used for these defaults to
 - Prints visible progress for each major action, with detailed traces when
   verbose output is enabled. Log prefixes use padded log4j-style levels such
   as `[INFO ]`, `[WARN ]`, `[ERROR]`, and `[DEBUG]`.
-- Runs each configured version command and prints the exact version output in
-  the final summary.
+- Runs each configured version command, or an availability check for tools
+  without a safe version command, and prints the detected value in the final
+  summary.
 - Optionally verifies resolved tool directories in the current user's `PATH`.
-- Reports missing tools, failed installations, and failed version checks.
+- Reports missing tools, failed installations, and failed verification checks.
 - Removes only tool directories that contain the `.coding-agent-toolchain`
   marker created during installation.
 
@@ -213,6 +215,8 @@ download URL.
 - Gitleaks: [Gitleaks project](https://github.com/gitleaks/gitleaks)
 - `betterleaks`: [betterleaks project](https://github.com/betterleaks/betterleaks)
 - GitHub CLI: [GitHub CLI project](https://github.com/cli/cli)
+- `tsx`: [tsx project](https://github.com/privatenumber/tsx)
+- `local-action`: [GitHub local-action project](https://github.com/github/local-action)
 - `ruff`: [Ruff project](https://github.com/astral-sh/ruff)
 - `editorconfig-checker`: [editorconfig-checker project](https://github.com/editorconfig-checker/editorconfig-checker)
 - PSScriptAnalyzer: [PSScriptAnalyzer project](https://github.com/PowerShell/PSScriptAnalyzer)
@@ -232,6 +236,8 @@ The manifest schema is intentionally small:
 - `tools` is an ordered list of tool definitions.
 - each tool in the canonical manifest defines `id`, `executable`, and
   `installers`.
+- `version_check` defaults to `command`. Set it to `command_available` for
+  tools that should be verified by executable availability only.
 - `version_args` defines the executable arguments used for version checks when
   the installer does not have a dedicated version lookup.
 - `installers` can define `windows` and `linux` blocks. Each platform block
@@ -256,9 +262,10 @@ pinned tool versions.
 
 ## Verification
 
-Each installed program is checked with its configured version command. The final
-output includes a summary of all tools and the exact version output reported by
-each program.
+Each installed program is checked with its configured version command, or by
+executable availability when `version_check: command_available` is set. The
+final output includes a summary of all tools and the detected version or
+availability value for each program.
 
 For repository changes, run the documentation and manifest checks before
 committing:

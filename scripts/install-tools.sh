@@ -14,6 +14,7 @@ prefix_root=""
 
 tool_ids=()
 tool_executables=()
+tool_version_checks=()
 tool_version_args=()
 installer_kinds=()
 installer_packages=()
@@ -142,6 +143,7 @@ read_manifest() {
       tool_ids[current_index]="$(trim_manifest_value "${BASH_REMATCH[1]}")"
       log_verbose "Reading manifest entry for tool '${tool_ids[current_index]}'."
       tool_executables[current_index]=""
+      tool_version_checks[current_index]="command"
       tool_version_args[current_index]=""
       installer_kinds[current_index]=""
       installer_packages[current_index]=""
@@ -168,6 +170,11 @@ read_manifest() {
 
     if [[ "${line}" =~ ^[[:space:]]{4}executable:[[:space:]]*(.+)$ ]]; then
       tool_executables[current_index]="$(trim_manifest_value "${BASH_REMATCH[1]}")"
+      continue
+    fi
+
+    if [[ "${line}" =~ ^[[:space:]]{4}version_check:[[:space:]]*(.+)$ ]]; then
+      tool_version_checks[current_index]="$(trim_manifest_value "${BASH_REMATCH[1]}")"
       continue
     fi
 
@@ -242,6 +249,14 @@ read_manifest() {
       log_error "Tool '${tool_ids[index]}' must define an executable."
       return 1
     fi
+
+    case "${tool_version_checks[index]}" in
+    command | command_available) ;;
+    *)
+      log_error "Tool '${tool_ids[index]}' defines unsupported version_check '${tool_version_checks[index]}'."
+      return 1
+      ;;
+    esac
 
     if [[ -z "${installer_kinds[index]}" ]]; then
       installer_kinds[index]="unavailable"
@@ -339,11 +354,16 @@ missing_prerequisite_detail() {
 dry_run_tool() {
   local index="$1"
   local executable
+  local verification_method="its configured version command"
 
   executable="$(tool_executable "${index}")"
+  if [[ "${tool_version_checks[index]}" == "command_available" ]]; then
+    verification_method="executable availability"
+  fi
+
   log_info "Dry-run: would check executable '${executable}' for tool '${tool_ids[index]}'."
   log_info "Dry-run: would install '${tool_ids[index]}' if required using '${installer_kinds[index]}'."
-  log_info "Dry-run: would verify '${tool_ids[index]}' with its configured version command."
+  log_info "Dry-run: would verify '${tool_ids[index]}' with ${verification_method}."
   log_info "Dry-run: would write an installation marker after a successful install."
 
   if [[ -n "${installer_packages[index]}" ]]; then
@@ -1840,6 +1860,11 @@ get_tool_version() {
     local package
     package="$(require_installer_value "${installer_packages[index]}" "package" "${tool_ids[index]}")"
     get_powershell_module_version "${package}"
+    return
+  fi
+
+  if [[ "${tool_version_checks[index]}" == "command_available" ]]; then
+    printf 'available\n'
     return
   fi
 

@@ -226,6 +226,29 @@ tools:
         file_name: gh
         archive_kind: tar_gz
 
+  - id: tsx
+    executable: tsx
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: npm_global
+        package: tsx
+      linux:
+        kind: npm_global
+        package: tsx
+
+  - id: local-action
+    executable: local-action
+    version_check: command_available
+    installers:
+      windows:
+        kind: npm_global
+        package: '@github/local-action'
+      linux:
+        kind: npm_global
+        package: '@github/local-action'
+
   - id: ruff
     executable: ruff
     version_args:

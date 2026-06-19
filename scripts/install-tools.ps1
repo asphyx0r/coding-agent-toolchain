@@ -208,9 +208,14 @@ function Invoke-DryRunTool {
     )
 
     $executable = Get-ToolExecutable -Tool $Tool -Installer $Installer
+    $verificationMethod = if ($Tool['VersionCheck'] -eq 'command_available') {
+        'executable availability'
+    } else {
+        'its configured version command'
+    }
     Write-Step "Dry-run: would check executable '$executable' for tool '$($Tool['Id'])'."
     Write-Step "Dry-run: would install '$($Tool['Id'])' if required using '$($Installer['kind'])'."
-    Write-Step "Dry-run: would verify '$($Tool['Id'])' with its configured version command."
+    Write-Step "Dry-run: would verify '$($Tool['Id'])' with $verificationMethod."
     Write-Step 'Dry-run: would write an installation marker after a successful install.'
 
     if ($Installer.Contains('package') -and -not [string]::IsNullOrWhiteSpace($Installer['package'])) {
@@ -275,6 +280,7 @@ function Initialize-ToolEntry {
     return [ordered]@{
         Id = $Id
         Executable = $null
+        VersionCheck = 'command'
         VersionArgs = [System.Collections.Generic.List[string]]::new()
         Installers = [ordered]@{}
     }
@@ -332,6 +338,11 @@ function Read-ToolManifest {
 
         if ($line -match '^    executable:\s*(.+)$') {
             $currentTool['Executable'] = ConvertFrom-ManifestValue -Value $matches[1]
+            continue
+        }
+
+        if ($line -match '^    version_check:\s*(.+)$') {
+            $currentTool['VersionCheck'] = ConvertFrom-ManifestValue -Value $matches[1]
             continue
         }
 
@@ -395,6 +406,10 @@ function Read-ToolManifest {
 
         if ([string]::IsNullOrWhiteSpace($tool['Executable'])) {
             throw "Tool '$($tool['Id'])' must define an executable."
+        }
+
+        if ($tool['VersionCheck'] -notin @('command', 'command_available')) {
+            throw "Tool '$($tool['Id'])' defines unsupported version_check '$($tool['VersionCheck'])'."
         }
 
         if (-not $tool['Installers'].Contains($PlatformName)) {
@@ -1652,6 +1667,10 @@ function Get-ToolVersion {
     if ($Installer['kind'] -eq 'powershell_gallery') {
         $package = Get-RequiredInstallerValue -Installer $Installer -Name 'package' -ToolId $Tool['Id']
         return Get-PowerShellModuleVersion -Name $package
+    }
+
+    if ($Tool['VersionCheck'] -eq 'command_available') {
+        return 'available'
     }
 
     Add-InstallerPathEntry -Tool $Tool -Installer $Installer

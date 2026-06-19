@@ -1052,7 +1052,7 @@ function Test-ManifestLoadAndSchema {
     $canonicalManifest = Get-RepositoryText -RelativePath 'config/tools.yaml'
     $canonicalResult = Invoke-ManifestCase -Platform $Platform -ManifestContent $canonicalManifest -DryRun
     Test-ExitCode -Name "MANIFEST-001 ${Platform}: canonical manifest exits zero" -Result $canonicalResult -ExpectedExitCode 0
-    Test-ResultText -Name "MANIFEST-001 ${Platform}: canonical tool count" -Result $canonicalResult -ExpectedText 'Loaded 20 tool entries'
+    Test-ResultText -Name "MANIFEST-001 ${Platform}: canonical tool count" -Result $canonicalResult -ExpectedText 'Loaded 22 tool entries'
     Test-ResultText -Name "MANIFEST-001 ${Platform}: first tool appears" -Result $canonicalResult -ExpectedText "Checking tool 'yamllint'"
     Test-ResultText -Name "MANIFEST-001 ${Platform}: last tool appears" -Result $canonicalResult -ExpectedText "Checking tool 'codespell'"
 
@@ -1201,6 +1201,29 @@ tools:
 '@
 }
 
+function Get-CommandAvailableManifestContent {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('windows', 'linux')]
+        [string]$Platform
+    )
+
+    $otherPlatform = if ($Platform -eq 'windows') { 'linux' } else { 'windows' }
+    $executable = if ($Platform -eq 'linux') { 'false' } else { 'sample-tool' }
+    @"
+schema_version: 1
+tools:
+  - id: sample-tool
+    executable: $executable
+    version_check: command_available
+    installers:
+      ${Platform}:
+        kind: direct_binary
+      ${otherPlatform}:
+        kind: unavailable
+"@
+}
+
 function Test-ManifestQuotedValue {
     param(
         [Parameter(Mandatory = $true)]
@@ -1231,6 +1254,48 @@ function Test-ManifestQuotedValue {
     Test-ResultText -Name "PATH-012 ${Platform}: present command directory is in PATH" -Result $result -ExpectedText 'InPath'
 }
 
+function Test-ManifestCommandAvailableVersionCheck {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('windows', 'linux')]
+        [string]$Platform
+    )
+
+    $layout = Initialize-IsolatedScriptLayout -ManifestContent (Get-CommandAvailableManifestContent -Platform $Platform)
+    $configPath = Get-PlatformPathArgument -Platform $Platform -Path $layout.ManifestPath
+    $environment = @{}
+
+    if ($Platform -eq 'windows') {
+        $commandDirectory = Join-Path -Path $layout.Root -ChildPath 'fake-bin'
+        New-Item -ItemType Directory -Path $commandDirectory | Out-Null
+        $commandPath = Join-Path -Path $commandDirectory -ChildPath 'sample-tool.cmd'
+        Set-Content `
+            -LiteralPath $commandPath `
+            -Value @('@echo off', 'echo unexpected-execution', 'exit /b 23') `
+            -Encoding ASCII
+        $environment = @{
+            PATH = "$commandDirectory$([IO.Path]::PathSeparator)$env:PATH"
+        }
+    }
+
+    $result = Invoke-IsolatedToolScript `
+        -Platform $Platform `
+        -Layout $layout `
+        -Arguments @('--check-path', '-c', $configPath) `
+        -Environment $environment
+    Test-ExitCode -Name "MANIFEST-016 ${Platform}: command_available exits zero" -Result $result -ExpectedExitCode 0
+    Test-ResultText -Name "MANIFEST-016 ${Platform}: command is present" -Result $result -ExpectedText 'Present'
+    Test-ResultText -Name "MANIFEST-016 ${Platform}: availability version reported" -Result $result -ExpectedText 'available'
+    Test-ResultTextAbsent `
+        -Name "MANIFEST-016 ${Platform}: command is not executed" `
+        -Result $result `
+        -UnexpectedText 'unexpected-execution'
+    Test-CheckCondition `
+        -Name "MANIFEST-016 ${Platform}: install branch is skipped" `
+        -Condition (-not $result.Output.Contains("Installing 'sample-tool'")) `
+        -FailureDetail 'Install branch ran even though the command was already available.'
+}
+
 function Test-ManifestLinuxCompatibility {
     $ghostscriptCondaForge = @'
 schema_version: 1
@@ -1254,6 +1319,7 @@ function Test-DirectManifestParsing {
         Test-ManifestInvalidShape -Platform $platform
         Test-ManifestPlatformAvailability -Platform $platform
         Test-ManifestQuotedValue -Platform $platform
+        Test-ManifestCommandAvailableVersionCheck -Platform $platform
     }
 
     Test-ManifestLinuxCompatibility
@@ -3753,6 +3819,13 @@ function Test-CanonicalManifestCoverage {
         -Name 'MATRIX-006 canonical tool count' `
         -Condition ($manifestTools.Count -eq $coverageRows.Count) `
         -FailureDetail "Manifest has $($manifestTools.Count) tools but TEST_PLAN.md covers $($coverageRows.Count)."
+
+    $tsxIndex = [array]::FindIndex($manifestTools, [Predicate[object]] { param($tool) $tool.Id -eq 'tsx' })
+    $localActionIndex = [array]::FindIndex($manifestTools, [Predicate[object]] { param($tool) $tool.Id -eq 'local-action' })
+    Test-CheckCondition `
+        -Name 'TOOL order: tsx before local-action' `
+        -Condition ($tsxIndex -ge 0 -and $localActionIndex -ge 0 -and $tsxIndex -lt $localActionIndex) `
+        -FailureDetail 'local-action requires the tsx command to be available before its version check runs.'
 
     foreach ($tool in $manifestTools) {
         $matchingRows = @($coverageRows | Where-Object { $_.Tool -eq $tool.Id })
