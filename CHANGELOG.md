@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.4.1
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| ff2f893 | fix: add commitlint defaults | asphyx |
+
 ## v1.4.0
 
 | References | Description | Author(s) |
