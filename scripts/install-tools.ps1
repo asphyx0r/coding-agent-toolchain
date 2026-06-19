@@ -1500,7 +1500,10 @@ function Install-PortableArchiveTool {
         Expand-ToolArchive @expandArguments
 
         $sourceRoot = $extractPath
-        $candidatePath = Join-Path -Path $sourceRoot -ChildPath $executable
+        $hasArchivePath = $Installer.Contains('archive_path') -and
+            -not [string]::IsNullOrWhiteSpace($Installer['archive_path'])
+        $configuredArchivePath = if ($hasArchivePath) { $Installer['archive_path'] } else { $executable }
+        $candidatePath = Join-Path -Path $sourceRoot -ChildPath $configuredArchivePath
         if (-not (Test-Path -LiteralPath $candidatePath -PathType Leaf)) {
             Write-TraceDetail "Searching extracted archive for executable '$executable'."
             $candidate = Get-ChildItem -LiteralPath $extractPath -Recurse -File |
@@ -1510,7 +1513,9 @@ function Install-PortableArchiveTool {
                 throw "Portable archive for tool '$($Tool['Id'])' does not contain '$executable'."
             }
 
-            $sourceRoot = $candidate.DirectoryName
+            if (-not $hasArchivePath) {
+                $sourceRoot = $candidate.DirectoryName
+            }
         }
 
         Confirm-Directory -Path $installDirectory

@@ -1503,6 +1503,35 @@ install_conda_forge_tool() {
   add_installer_path_entries "${index}" current
 }
 
+extract_downloaded_archive() {
+  local index="$1"
+  local archive_kind="$2"
+  local download_path="$3"
+  local target_dir="$4"
+
+  case "${archive_kind}" in
+  tar_xz)
+    extract_tar_xz "${download_path}" "${target_dir}"
+    ;;
+  tar_gz)
+    log_verbose "Running command: tar -xzf ${download_path} -C ${target_dir}"
+    tar -xzf "${download_path}" -C "${target_dir}"
+    ;;
+  zip)
+    if ! command -v unzip >/dev/null 2>&1; then
+      log_error "Tool '${tool_ids[index]}' requires unzip for zip archive extraction."
+      return 1
+    fi
+    log_verbose "Running command: unzip -q ${download_path} -d ${target_dir}"
+    unzip -q "${download_path}" -d "${target_dir}"
+    ;;
+  *)
+    log_error "Unsupported archive_kind '${archive_kind}' for tool '${tool_ids[index]}'."
+    return 1
+    ;;
+  esac
+}
+
 copy_extracted_binary() {
   local temp_dir="$1"
   local archive_path="$2"
@@ -1565,38 +1594,10 @@ install_direct_binary_tool() {
       rm -rf -- "${temp_dir}"
       return 1
     fi
-    case "${archive_kind}" in
-    tar_xz)
-      if ! extract_tar_xz "${download_path}" "${temp_dir}"; then
-        rm -rf -- "${temp_dir}"
-        return 1
-      fi
-      ;;
-    tar_gz)
-      log_verbose "Running command: tar -xzf ${download_path} -C ${temp_dir}"
-      if ! tar -xzf "${download_path}" -C "${temp_dir}"; then
-        rm -rf -- "${temp_dir}"
-        return 1
-      fi
-      ;;
-    zip)
-      if ! command -v unzip >/dev/null 2>&1; then
-        log_error "Tool '${tool_ids[index]}' requires unzip for zip archive extraction."
-        rm -rf -- "${temp_dir}"
-        return 1
-      fi
-      log_verbose "Running command: unzip -q ${download_path} -d ${temp_dir}"
-      if ! unzip -q "${download_path}" -d "${temp_dir}"; then
-        rm -rf -- "${temp_dir}"
-        return 1
-      fi
-      ;;
-    *)
-      log_error "Unsupported archive_kind '${archive_kind}' for tool '${tool_ids[index]}'."
+    if ! extract_downloaded_archive "${index}" "${archive_kind}" "${download_path}" "${temp_dir}"; then
       rm -rf -- "${temp_dir}"
       return 1
-      ;;
-    esac
+    fi
 
     if ! copy_extracted_binary "${temp_dir}" "${archive_path}" "${file_name}" "${target_path}"; then
       rm -rf -- "${temp_dir}"
@@ -1608,6 +1609,75 @@ install_direct_binary_tool() {
     rm -rf -- "${temp_dir}"
     return 1
   fi
+
+  log_verbose "Removing temporary directory '${temp_dir}'."
+  rm -rf -- "${temp_dir}"
+}
+
+install_portable_archive_tool() {
+  local index="$1"
+  local url
+  local archive_kind
+  local archive_path
+  local executable
+  local install_dir
+  local temp_dir
+  local download_path
+  local extract_dir
+  local source_root
+  local expected_path
+  local has_archive_path=0
+
+  url="$(installer_download_url "${index}")" || return 1
+  archive_kind="$(require_installer_value "${installer_archive_kinds[index]}" "archive_kind" "${tool_ids[index]}")" ||
+    return 1
+  executable="$(tool_executable "${index}")"
+  archive_path="${installer_archive_paths[index]:-${executable}}"
+  install_dir="$(install_directory "${index}")"
+
+  log_info "Installing '${tool_ids[index]}' from a portable archive."
+  temp_dir="$(mktemp -d)" || return 1
+  download_path="${temp_dir}/download"
+  extract_dir="${temp_dir}/extract"
+  ensure_directory "${extract_dir}"
+
+  if ! download_file "${url}" "${download_path}"; then
+    rm -rf -- "${temp_dir}"
+    return 1
+  fi
+
+  if ! extract_downloaded_archive "${index}" "${archive_kind}" "${download_path}" "${extract_dir}"; then
+    rm -rf -- "${temp_dir}"
+    return 1
+  fi
+
+  source_root="${extract_dir}"
+  if [[ -n "${installer_archive_paths[index]}" ]]; then
+    has_archive_path=1
+  fi
+  expected_path="${extract_dir}/${archive_path}"
+
+  if [[ ! -f "${expected_path}" ]]; then
+    log_verbose "Configured archive path was not found. Searching extracted files for '${executable}'."
+    expected_path="$(find "${extract_dir}" -type f -name "${executable}" -print -quit)"
+    if [[ -z "${expected_path}" || ! -f "${expected_path}" ]]; then
+      log_error "Portable archive for '${tool_ids[index]}' does not contain '${executable}'."
+      rm -rf -- "${temp_dir}"
+      return 1
+    fi
+
+    if ((has_archive_path == 0)); then
+      source_root="$(dirname -- "${expected_path}")"
+    fi
+  fi
+
+  ensure_directory "${install_dir}"
+  log_verbose "Copying portable archive contents from '${source_root}' to '${install_dir}'."
+  if ! cp -R "${source_root}/." "${install_dir}/"; then
+    rm -rf -- "${temp_dir}"
+    return 1
+  fi
+  add_installer_path_entries "${index}"
 
   log_verbose "Removing temporary directory '${temp_dir}'."
   rm -rf -- "${temp_dir}"
@@ -1808,6 +1878,7 @@ install_tool() {
       install_direct_binary_tool "${index}"
     fi
     ;;
+  portable_archive) install_portable_archive_tool "${index}" ;;
   appimage_extract) install_appimage_extract_tool "${index}" ;;
   source_make) install_source_make_with_fallback_tool "${index}" ;;
   *)

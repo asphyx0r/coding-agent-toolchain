@@ -142,9 +142,9 @@ Passing `--prefix <directory>` changes the root used for these defaults to
 - Checks and installs these validation tools where supported on the target
   platform: `yamllint`, `shfmt`, `yq`, `jq`, `markdownlint-cli2`, `commitlint`,
   ImageMagick, Ghostscript, `shellcheck`, `sqlfluff`, `pre-commit`, Gitleaks,
-  `betterleaks`, GitHub CLI, `tsx`, `local-action`, `ruff`,
-  `editorconfig-checker`, PSScriptAnalyzer, `bats-core`, Pester, and
-  `codespell`.
+  `betterleaks`, GitHub CLI, `tsx`, `local-action`, GitHub Actions Runner,
+  `actionlint`, `ruff`, `editorconfig-checker`, PSScriptAnalyzer, `bats-core`,
+  Pester, and `codespell`.
 - Supports declarative installer kinds for `winget`, `npm`, Chocolatey,
   `brew`, `pip`, PowerShell Gallery modules, conda-forge packages through
   user-scoped micromamba, direct binaries, portable archives, extracted
@@ -217,6 +217,8 @@ download URL.
 - GitHub CLI: [GitHub CLI project](https://github.com/cli/cli)
 - `tsx`: [tsx project](https://github.com/privatenumber/tsx)
 - `local-action`: [GitHub local-action project](https://github.com/github/local-action)
+- GitHub Actions Runner: [actions/runner project](https://github.com/actions/runner)
+- `actionlint`: [actionlint project](https://github.com/rhysd/actionlint)
 - `ruff`: [Ruff project](https://github.com/astral-sh/ruff)
 - `editorconfig-checker`: [editorconfig-checker project](https://github.com/editorconfig-checker/editorconfig-checker)
 - PSScriptAnalyzer: [PSScriptAnalyzer project](https://github.com/PowerShell/PSScriptAnalyzer)

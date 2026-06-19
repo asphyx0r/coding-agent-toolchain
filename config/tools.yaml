@@ -249,6 +249,51 @@ tools:
         kind: npm_global
         package: '@github/local-action'
 
+  - id: actions-runner
+    executable: Runner.Listener
+    version_check: command_available
+    installers:
+      windows:
+        kind: portable_archive
+        owner: actions
+        repo: runner
+        asset_pattern: 'actions-runner-win-x64-[0-9.]+[.]zip'
+        executable: Runner.Listener.exe
+        archive_kind: zip
+        archive_path: bin/Runner.Listener.exe
+        install_dir_name: actions-runner
+        bin_path: bin
+      linux:
+        kind: portable_archive
+        owner: actions
+        repo: runner
+        asset_pattern: 'actions-runner-linux-x64-[0-9.]+[.]tar[.]gz'
+        executable: Runner.Listener
+        archive_kind: tar_gz
+        archive_path: bin/Runner.Listener
+        install_dir_name: actions-runner
+        bin_path: bin
+
+  - id: actionlint
+    executable: actionlint
+    version_args:
+      - -version
+    installers:
+      windows:
+        kind: github_release_asset
+        owner: rhysd
+        repo: actionlint
+        asset_pattern: 'actionlint_[0-9.]+_windows_amd64[.]zip'
+        file_name: actionlint.exe
+        archive_kind: zip
+      linux:
+        kind: github_release_asset
+        owner: rhysd
+        repo: actionlint
+        asset_pattern: 'actionlint_[0-9.]+_linux_amd64[.]tar[.]gz'
+        file_name: actionlint
+        archive_kind: tar_gz
+
   - id: ruff
     executable: ruff
     version_args:

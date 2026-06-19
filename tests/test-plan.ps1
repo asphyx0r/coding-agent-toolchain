@@ -1052,7 +1052,7 @@ function Test-ManifestLoadAndSchema {
     $canonicalManifest = Get-RepositoryText -RelativePath 'config/tools.yaml'
     $canonicalResult = Invoke-ManifestCase -Platform $Platform -ManifestContent $canonicalManifest -DryRun
     Test-ExitCode -Name "MANIFEST-001 ${Platform}: canonical manifest exits zero" -Result $canonicalResult -ExpectedExitCode 0
-    Test-ResultText -Name "MANIFEST-001 ${Platform}: canonical tool count" -Result $canonicalResult -ExpectedText 'Loaded 22 tool entries'
+    Test-ResultText -Name "MANIFEST-001 ${Platform}: canonical tool count" -Result $canonicalResult -ExpectedText 'Loaded 24 tool entries'
     Test-ResultText -Name "MANIFEST-001 ${Platform}: first tool appears" -Result $canonicalResult -ExpectedText "Checking tool 'yamllint'"
     Test-ResultText -Name "MANIFEST-001 ${Platform}: last tool appears" -Result $canonicalResult -ExpectedText "Checking tool 'codespell'"
 
@@ -1428,6 +1428,31 @@ tools:
 "@
 }
 
+function Get-LinuxPortableArchiveManifestContent {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Url
+    )
+
+    @"
+schema_version: 1
+tools:
+  - id: sample-tool
+    executable: sample-tool
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: unavailable
+      linux:
+        kind: portable_archive
+        url: $Url
+        archive_kind: tar_gz
+        archive_path: bin/sample-tool
+        bin_path: bin
+"@
+}
+
 function Get-LinuxPackageInstallerManifestContent {
     param(
         [Parameter(Mandatory = $true)]
@@ -1538,6 +1563,8 @@ tools:
         kind: portable_archive
         url: $Url
         archive_kind: seven_zip
+        archive_path: bin/cat-test-tool.cmd
+        bin_path: bin
       linux:
         kind: unavailable
 "@
@@ -1593,8 +1620,11 @@ function Initialize-WindowsDispatchFixture {
     New-Item -ItemType Directory -Path $fakeBinDirectory, $sourceDirectory | Out-Null
 
     $toolCommandName = 'cat-test-tool.cmd'
+    $installedBinDirectory = Join-Path -Path $installDirectory -ChildPath 'bin'
     $fakeBinToolPath = Join-Path -Path $fakeBinDirectory -ChildPath $toolCommandName
     $installedToolPath = Join-Path -Path $installDirectory -ChildPath $toolCommandName
+    $portableInstalledToolPath = Join-Path -Path $installedBinDirectory -ChildPath $toolCommandName
+    $portableRootPath = Join-Path -Path $installDirectory -ChildPath 'portable-root.txt'
     $portableSourcePath = Join-Path -Path $sourceDirectory -ChildPath $toolCommandName
     Write-WindowsCommandFile -Path $portableSourcePath -VersionText 'portable-version'
 
@@ -1637,7 +1667,9 @@ function Initialize-WindowsDispatchFixture {
         ':done'
         'if "%destination%"=="" exit /b 2'
         'if not exist "%destination%" mkdir "%destination%"'
-        'copy /Y "%CAT_TEST_WINDOWS_PORTABLE_SOURCE%" "%destination%\cat-test-tool.cmd" >nul'
+        'if not exist "%destination%\bin" mkdir "%destination%\bin"'
+        'copy /Y "%CAT_TEST_WINDOWS_PORTABLE_SOURCE%" "%destination%\bin\cat-test-tool.cmd" >nul'
+        'echo portable root>"%destination%\portable-root.txt"'
         'exit /b %ERRORLEVEL%'
     ) -Encoding ASCII
 
@@ -1688,6 +1720,8 @@ public static class $className
         FakeBinMarkerPath = Join-Path -Path $fakeBinDirectory -ChildPath '.coding-agent-toolchain'
         InstallDirectory = $installDirectory
         InstalledToolPath = $installedToolPath
+        PortableInstalledToolPath = $portableInstalledToolPath
+        PortableRootPath = $portableRootPath
         InstallMarkerPath = Join-Path -Path $installDirectory -ChildPath '.coding-agent-toolchain'
         PortableArchiveUrl = ConvertTo-FileUriString -Path $portableArchivePath
         DirectInstallerUrl = $directInstallerUrl
@@ -1842,6 +1876,7 @@ function Initialize-LinuxDirectBinaryFixture {
             'ArchiveTarGz',
             'ArchiveTarXz',
             'ArchiveMissing',
+            'PortableArchive',
             'GitHubRelease',
             'GitHubNoAsset',
             'SourceMake',
@@ -1953,6 +1988,25 @@ function Initialize-LinuxDirectBinaryFixture {
         '  ArchiveTarXz) create_tar_archive "${archive_path}" "${payload_path}" "${entry_name}" "w:xz" ;;',
         '  esac',
         '}',
+        'create_portable_archive_source() {',
+        '  local archive_path="$1"',
+        '  local source_root="${runtime_path}/portable-work/root"',
+        '  local python_command',
+        '  mkdir -p -- "${source_root}/bin"',
+        '  write_archive_payload "${source_root}/bin/sample-tool"',
+        '  chmod 755 "${source_root}/bin/sample-tool"',
+        '  printf "%s\n" "portable root" >"${source_root}/portable-root.txt"',
+        '  python_command="$(command -v python3 || command -v python)"',
+        '  ARCHIVE_PATH="${archive_path}" SOURCE_ROOT="${source_root}" "${python_command}" - <<''PY''',
+        'import os',
+        'import tarfile',
+        'archive_path = os.environ["ARCHIVE_PATH"]',
+        'source_root = os.environ["SOURCE_ROOT"]',
+        'with tarfile.open(archive_path, "w:gz") as archive:',
+        '    for name in ("bin/sample-tool", "portable-root.txt"):',
+        '        archive.add(os.path.join(source_root, name), arcname=name)',
+        'PY',
+        '}',
         'create_source_make_source() {',
         '  local archive_path="$1"',
         '  local source_root="${runtime_path}/source-work/sample-source"',
@@ -1974,7 +2028,9 @@ function Initialize-LinuxDirectBinaryFixture {
         '  chmod 755 "${source_root}/configure"',
         '  create_tar_archive "${archive_path}" "${source_root}" "sample-source" "w:xz"',
         '}',
-        'if [[ "${source_mode}" == "VersionFailure" ]]; then',
+        'if [[ "${source_mode}" == "PortableArchive" ]]; then',
+        '  create_portable_archive_source "${source_file}"',
+        'elif [[ "${source_mode}" == "VersionFailure" ]]; then',
         '  printf "%s\n" "#!/usr/bin/env bash" "printf ''bad-version\n'' >&2" "exit 7" >"${source_file}"',
         'elif [[ "${source_mode}" == "AppImage" ]]; then',
         '  cat >"${source_file}" <<''APPIMAGE''',
@@ -2232,6 +2288,7 @@ function Initialize-LinuxDirectBinaryFixture {
             MissingSourceUrl = "file://$runtimePath/source/missing-tool"
             PrefixPath = $prefixPath
             ToolPath = "$toolDirectoryPath/bin/$TargetFileName"
+            PortableRootPath = "$toolDirectoryPath/portable-root.txt"
             MarkerPath = "$toolDirectoryPath/.coding-agent-toolchain"
             DefaultToolPath = "$defaultToolDirectoryPath/bin/$TargetFileName"
             DefaultMarkerPath = "$defaultToolDirectoryPath/.coding-agent-toolchain"
@@ -2507,6 +2564,44 @@ function Test-LinuxArchiveInstallFlow {
             if ($null -ne $fixture) {
                 Clear-LinuxRuntimeDirectory -Path $fixture.RuntimePath
             }
+        }
+    }
+}
+
+function Test-LinuxPortableArchiveInstallFlow {
+    $layout = Initialize-IsolatedScriptLayout -ManifestContent (Get-UnavailableManifestContent)
+    $fixture = $null
+    try {
+        $fixture = Initialize-LinuxDirectBinaryFixture -Layout $layout -SourceMode 'PortableArchive'
+        $result = Invoke-LinuxDirectBinaryFixture `
+            -Layout $layout `
+            -Fixture $fixture `
+            -ManifestContent (Get-LinuxPortableArchiveManifestContent -Url $fixture.SourceUrl)
+
+        Test-ExitCode -Name 'DISPATCH-011 linux: portable_archive exits zero' -Result $result -ExpectedExitCode 0
+        Test-ResultText `
+            -Name 'DISPATCH-011 linux: portable_archive branch is used' `
+            -Result $result `
+            -ExpectedText 'portable archive'
+        Test-ResultText `
+            -Name 'DISPATCH-011 linux: portable_archive reports version' `
+            -Result $result `
+            -ExpectedText 'archive-version'
+        Test-CheckCondition `
+            -Name 'DISPATCH-011 linux: portable_archive command exists' `
+            -Condition (Test-LinuxPathPresence -Path $fixture.ToolPath) `
+            -FailureDetail 'Portable archive command was not installed.'
+        Test-CheckCondition `
+            -Name 'DISPATCH-011 linux: portable_archive root content exists' `
+            -Condition (Test-LinuxPathPresence -Path $fixture.PortableRootPath) `
+            -FailureDetail 'Portable archive root content was not copied.'
+        Test-CheckCondition `
+            -Name 'DISPATCH-011 linux: portable_archive marker exists' `
+            -Condition (Test-LinuxPathPresence -Path $fixture.MarkerPath) `
+            -FailureDetail 'Portable archive marker was not written.'
+    } finally {
+        if ($null -ne $fixture) {
+            Clear-LinuxRuntimeDirectory -Path $fixture.RuntimePath
         }
     }
 }
@@ -2811,8 +2906,12 @@ function Test-WindowsArchiveAndDirectInstallerFlow {
         -ExpectedText 'portable-version'
     Test-CheckCondition `
         -Name 'DISPATCH-011 windows: portable_archive command exists' `
-        -Condition (Test-Path -LiteralPath $portableFixture.InstalledToolPath -PathType Leaf) `
+        -Condition (Test-Path -LiteralPath $portableFixture.PortableInstalledToolPath -PathType Leaf) `
         -FailureDetail 'Portable archive command was not installed.'
+    Test-CheckCondition `
+        -Name 'DISPATCH-011 windows: portable_archive root content exists' `
+        -Condition (Test-Path -LiteralPath $portableFixture.PortableRootPath -PathType Leaf) `
+        -FailureDetail 'Portable archive root content was not copied.'
     Test-CheckCondition `
         -Name 'DISPATCH-011 windows: portable_archive marker exists' `
         -Condition (Test-Path -LiteralPath $portableFixture.InstallMarkerPath -PathType Leaf) `
@@ -3156,6 +3255,7 @@ function Test-DirectDispatchAndInstall {
     Test-LinuxInteropCommandPath
     Test-LinuxDirectBinaryInstallFlow
     Test-LinuxArchiveInstallFlow
+    Test-LinuxPortableArchiveInstallFlow
     Test-LinuxGitHubReleaseAssetInstallFlow
     Test-LinuxCommandBackedInstallerFlow
     Test-WindowsPackageInstallerFlow

@@ -207,7 +207,7 @@ external commands. The expected command arguments are part of the assertion.
 | `DISPATCH-008` | both | `chocolatey` | Calls the Chocolatey branch and treats user-scope failure as installation failure. |
 | `DISPATCH-009` | both | `direct_binary` | Downloads or copies the binary into the managed install directory and publishes the command. |
 | `DISPATCH-010` | both | `github_release_asset` | Resolves the latest release asset, extracts or copies it, and publishes the command. |
-| `DISPATCH-011` | windows | `portable_archive` | Extracts the archive, resolves `bin_path`, and publishes the Windows command shim. |
+| `DISPATCH-011` | both | `portable_archive` | Extracts the archive, resolves `bin_path`, and verifies the installed command. |
 | `DISPATCH-012` | windows | `direct_installer` | Downloads and runs the installer with target arguments, then verifies the installed command. |
 | `DISPATCH-013` | linux | `appimage_extract` | Extracts the AppImage and publishes the Linux command symlink. |
 | `DISPATCH-014` | linux | `source_make` with compiler | Builds from source under the managed prefix and verifies the command. |
@@ -318,6 +318,8 @@ installer block and the platform script skips the tool.
 | `TOOL-020` | `bats-core` | `unavailable` | `npm_global` | `MANIFEST-009`, `INSTALL-007`, `DISPATCH-004` |
 | `TOOL-021` | `pester` | `powershell_gallery` | `powershell_gallery` | `DISPATCH-005` |
 | `TOOL-022` | `codespell` | `pip` | `pip` | `DISPATCH-001` |
+| `TOOL-023` | `actions-runner` | `portable_archive` | `portable_archive` | `DISPATCH-011`, `ARCHIVE-003` |
+| `TOOL-024` | `actionlint` | `github_release_asset` | `github_release_asset` | `DISPATCH-010`, `ARCHIVE-001`, `ARCHIVE-003`, `ARCHIVE-008` |
 
 ### Documentation Consistency Tests
 
