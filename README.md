@@ -309,9 +309,16 @@ Scripts report the internal version embedded in each platform implementation.
 
 ## Contributing
 
-Use Conventional Commit headers for repository commits. Before committing,
-configure the repository commit template if you want Git to load it
-automatically:
+Use Conventional Commit headers for repository commits. Repository-level commit
+message validation is defined in
+[`commitlint.config.cjs`](commitlint.config.cjs). Check a candidate message with:
+
+```powershell
+"docs: align commit rules" | commitlint --config commitlint.config.cjs
+```
+
+Before committing, configure the repository commit template if you want Git to
+load it automatically:
 
 ```powershell
 git config commit.template .gitmessage
