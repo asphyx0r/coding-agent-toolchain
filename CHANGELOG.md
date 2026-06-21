@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.4.2
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| b8d1159 | docs: clarify installer trust boundary | asphyx |
+| dd7a5ab | test: remove stale runtime cleanup | asphyx |
+| 3f43bf3 | docs: fix rust static wording | asphyx |
+| 98e3010 | `test: lint workflow yaml locally` | asphyx |
+| b2fa293 | ci: document validation trust boundary | asphyx |
+| 3094cef | test: align matrix coverage contract | asphyx |
+| 90dc6f3 | fix(linux): guard xdg data root | asphyx |
+| 0ad3074 | docs: sync agent rule guidance | asphyx |
+| f529f0d | fix: keep version fallback under WhatIf | asphyx |
+| 228afe1 | ci: add repository validation workflow | asphyx |
+| ff9a575 | docs: add security reporting policy | asphyx |
+| 418f8fd | docs: avoid codespell false positive | asphyx |
+| 4a065f6 | fix: derive script version from Git | asphyx |
+| 5aaf99e | docs: clarify upstream trust model | asphyx |
+| 4a92826 | fix: resolve prefix paths physically | asphyx |
+| deb8d8e | fix: reject elevated public modes | asphyx |
+| 786f1b2 | chore: enforce commitlint policy | asphyx |
+
 ## v1.4.1
 
 | References | Description | Author(s) |

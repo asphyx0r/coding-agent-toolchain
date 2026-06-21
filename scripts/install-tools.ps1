@@ -37,7 +37,7 @@ if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
     $ConfigPath = Join-Path -Path $ScriptRoot -ChildPath '..\config\tools.yaml'
 }
 
-Set-Variable -Name ToolVersionFallback -Value 'v1.4.1' -Option Constant -Scope Script -WhatIf:$false
+Set-Variable -Name ToolVersionFallback -Value 'v1.4.2' -Option Constant -Scope Script -WhatIf:$false
 
 function Get-ScriptVersion {
     $repositoryRoot = [IO.Path]::GetFullPath((Join-Path -Path $ScriptRoot -ChildPath '..'))
