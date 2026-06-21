@@ -129,6 +129,28 @@ not overlap.
 | `STATIC-005` | PowerShell | Parse PowerShell scripts with the PowerShell parser. | No parse errors. |
 | `STATIC-006` | PowerShell | Run `Invoke-ScriptAnalyzer` against PowerShell scripts when available. | No analyzer findings. |
 
+### Supply Chain Trust Tests
+
+| ID | Scope | Scenario | Expected result |
+| --- | --- | --- | --- |
+| `SUPPLY-001` | Installer trust | Cross-check every canonical installer kind against the documented verification strategy table. | Every canonical installer kind has one `trusted_upstream`, `checksum`, or `signature` strategy. |
+
+### Installer Verification Strategies
+
+Accepted strategies are `trusted_upstream`, `checksum`, and `signature`.
+
+| Installer kind | Verification strategy |
+| --- | --- |
+| `appimage_extract` | `trusted_upstream` |
+| `direct_binary` | `trusted_upstream` |
+| `direct_installer` | `trusted_upstream` |
+| `github_release_asset` | `trusted_upstream` |
+| `npm_global` | `trusted_upstream` |
+| `pip` | `trusted_upstream` |
+| `portable_archive` | `trusted_upstream` |
+| `powershell_gallery` | `trusted_upstream` |
+| `source_make` | `trusted_upstream` |
+
 ### Safety Boundary Tests
 
 These tests harden error handling around privilege, filesystem boundaries, and

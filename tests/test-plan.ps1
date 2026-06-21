@@ -4035,6 +4035,22 @@ function Get-ExpectedInstallerCoverageId {
     return @($coverageByKind[$Kind])
 }
 
+function Get-TestPlanInstallerVerificationStrategy {
+    $testPlanText = Get-RepositoryText -RelativePath 'TEST_PLAN.md'
+    $strategies = @{}
+    $pattern = '^\| `(?<Kind>[a-z_]+)` \| `(?<Strategy>[^`]+)` \|$'
+    foreach ($line in $testPlanText -split '\r?\n') {
+        $match = [regex]::Match($line, $pattern)
+        if (-not $match.Success) {
+            continue
+        }
+
+        $strategies[$match.Groups['Kind'].Value] = $match.Groups['Strategy'].Value
+    }
+
+    return $strategies
+}
+
 function Get-TestPlanId {
     $testPlanText = Get-RepositoryText -RelativePath 'TEST_PLAN.md'
     $ids = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
@@ -4224,6 +4240,39 @@ function Test-CanonicalManifestCoverage {
     }
 }
 
+function Test-SupplyChainVerificationContract {
+    $strategies = Get-TestPlanInstallerVerificationStrategy
+    $allowedStrategies = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($strategy in @('trusted_upstream', 'checksum', 'signature')) {
+        $null = $allowedStrategies.Add($strategy)
+    }
+
+    foreach ($documentedKind in $strategies.Keys) {
+        Test-CheckCondition `
+            -Name "SUPPLY-001 strategy value: $documentedKind" `
+            -Condition ($allowedStrategies.Contains($strategies[$documentedKind])) `
+            -FailureDetail "Installer kind '$documentedKind' has unsupported strategy '$($strategies[$documentedKind])'."
+    }
+
+    $manifestKinds = [System.Collections.Generic.SortedSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($tool in (Get-ManifestTool)) {
+        foreach ($kind in @($tool.WindowsKind, $tool.LinuxKind)) {
+            if ([string]::IsNullOrWhiteSpace($kind) -or $kind -eq 'unavailable') {
+                continue
+            }
+
+            $null = $manifestKinds.Add($kind)
+        }
+    }
+
+    foreach ($kind in $manifestKinds) {
+        Test-CheckCondition `
+            -Name "SUPPLY-001 strategy documented: $kind" `
+            -Condition ($strategies.ContainsKey($kind)) `
+            -FailureDetail "Canonical installer kind '$kind' has no verification strategy."
+    }
+}
+
 function Test-DocumentationConsistency {
     $readmeText = Get-RepositoryText -RelativePath 'README.md'
     $windowsScriptText = Get-RepositoryText -RelativePath 'scripts/install-tools.ps1'
@@ -4361,6 +4410,7 @@ function Invoke-TestPlanCheck {
             { Test-InventoryTemplate }
             { Test-ReferenceIntegrity }
             { Test-CanonicalManifestCoverage }
+            { Test-SupplyChainVerificationContract }
             { Test-DocumentationConsistency }
         )
         'Script parser checks' = @(

@@ -12,6 +12,11 @@ including package-manager channels, `latest` or `stable` labels, GitHub release
 assets, direct URLs, and source build fallbacks. The installer scripts do not
 currently pin those upstream artifacts with checksums or signatures.
 
+The local test plan still requires each canonical installer kind to declare a
+verification strategy. The `trusted_upstream` strategy records an explicit
+trust decision for moving sources until checksum or signature verification is
+implemented for that kind.
+
 Treat the manifest sources and the upstream package managers or release assets
 they reference as trusted inputs before running an install. This boundary is
 separate from the GitHub Actions validation workflow trust boundary documented
