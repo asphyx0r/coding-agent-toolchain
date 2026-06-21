@@ -262,6 +262,11 @@ including `latest`, `stable`, and latest GitHub release assets. This project
 optimizes for bootstrapping current validation tools, not for reproducible
 pinned tool versions.
 
+These moving upstream sources are an explicit bootstrapping trust boundary. The
+project does not currently verify downloaded checksums or signatures, so users
+should treat upstream package managers, release assets, and direct download URLs
+as trusted inputs when running the installers.
+
 ## Verification
 
 Each installed program is checked with its configured version command, or by
