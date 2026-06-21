@@ -309,8 +309,9 @@ Invoke-ScriptAnalyzer -Path .\scripts\install-tools.ps1
 
 ## Versioning
 
-Scripts report the internal version embedded in each platform implementation.
-`CHANGELOG.md` uses tag sections for release entries.
+Scripts report `git describe --tags --long --always --dirty` when they run
+from a Git checkout. If Git or `.git` metadata is unavailable, they fall back
+to `v1.4.1`. `CHANGELOG.md` uses tag sections for release entries.
 
 ## Contributing
 

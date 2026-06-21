@@ -5,7 +5,28 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 config_path="${script_dir}/../config/tools.yaml"
 platform_name="linux"
 arg_delimiter=$'\034'
-readonly TOOL_VERSION="v1.4.0"
+readonly TOOL_VERSION_FALLBACK="v1.4.1"
+
+script_version() {
+  local repo_root
+  local version
+
+  repo_root="$(cd "${script_dir}/.." && pwd -P)"
+
+  if command -v git >/dev/null 2>&1 && [[ -d "${repo_root}/.git" ]]; then
+    if version="$(git -C "${repo_root}" describe --tags --long --always --dirty 2>/dev/null)"; then
+      if [[ -n "${version}" ]]; then
+        printf '%s' "${version}"
+        return 0
+      fi
+    fi
+  fi
+
+  printf '%s' "${TOOL_VERSION_FALLBACK}"
+}
+
+TOOL_VERSION="$(script_version)"
+readonly TOOL_VERSION
 verbose=0
 dry_run=0
 check_path=0

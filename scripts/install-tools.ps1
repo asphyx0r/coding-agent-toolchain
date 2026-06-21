@@ -37,7 +37,34 @@ if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
     $ConfigPath = Join-Path -Path $ScriptRoot -ChildPath '..\config\tools.yaml'
 }
 
-Set-Variable -Name ToolVersion -Value 'v1.4.0' -Option Constant -Scope Script
+Set-Variable -Name ToolVersionFallback -Value 'v1.4.1' -Option Constant -Scope Script
+
+function Get-ScriptVersion {
+    $repositoryRoot = [IO.Path]::GetFullPath((Join-Path -Path $ScriptRoot -ChildPath '..'))
+    $gitMetadataPath = Join-Path -Path $repositoryRoot -ChildPath '.git'
+    if (-not (Test-Path -LiteralPath $gitMetadataPath)) {
+        return $ToolVersionFallback
+    }
+
+    $gitCommand = Get-Command -Name git -ErrorAction SilentlyContinue
+    if ($null -eq $gitCommand) {
+        return $ToolVersionFallback
+    }
+
+    $output = & $gitCommand.Source -C $repositoryRoot describe --tags --long --always --dirty 2>$null
+    if ($LASTEXITCODE -ne 0 -or $null -eq $output) {
+        return $ToolVersionFallback
+    }
+
+    $version = (($output | Select-Object -First 1).ToString()).Trim()
+    if ([string]::IsNullOrWhiteSpace($version)) {
+        return $ToolVersionFallback
+    }
+
+    return $version
+}
+
+Set-Variable -Name ToolVersion -Value (Get-ScriptVersion) -Option Constant -Scope Script
 $VerboseTraceEnabled = [bool]$VerboseTrace -or ($VerbosePreference -ne 'SilentlyContinue')
 $DryRunEnabled = [bool]$DryRun
 $RemoveEnabled = [bool]$Remove
