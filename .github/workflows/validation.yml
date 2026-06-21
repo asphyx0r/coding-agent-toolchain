@@ -1,0 +1,104 @@
+name: Repository Validation
+
+"on":
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate repository
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install validation tools
+        shell: pwsh
+        run: |
+          npm install --global markdownlint-cli2
+          python -m pip install --upgrade pip
+          python -m pip install yamllint codespell
+          choco install shellcheck --yes --no-progress
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module `
+            -Name PSScriptAnalyzer `
+            -Scope CurrentUser `
+            -Force `
+            -AllowClobber `
+            -Repository PSGallery
+
+      - name: Run Markdown lint
+        shell: pwsh
+        run: markdownlint-cli2 "**/*.md"
+
+      - name: Run YAML lint
+        shell: pwsh
+        run: yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml .github/workflows/validation.yml
+
+      - name: Check Bash syntax
+        shell: pwsh
+        run: bash -n scripts/install-tools.sh
+
+      - name: Run ShellCheck
+        shell: pwsh
+        run: shellcheck scripts/install-tools.sh
+
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $scriptPaths = @(
+            "./scripts/install-tools.ps1",
+            "./tests/test-plan.ps1"
+          )
+          foreach ($scriptPath in $scriptPaths) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $scriptPath),
+              [ref] $tokens,
+              [ref] $errors
+            ) > $null
+            if ($errors) {
+              $errors
+              exit 1
+            }
+          }
+
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $findings = @(
+            Invoke-ScriptAnalyzer -Path ./scripts/install-tools.ps1
+            Invoke-ScriptAnalyzer -Path ./tests/test-plan.ps1
+          )
+          if ($findings.Count -gt 0) {
+            $findings | Format-Table -AutoSize
+            exit 1
+          }
+
+      - name: Check JavaScript config syntax
+        shell: pwsh
+        run: node --check commitlint.config.cjs
+
+      - name: Run codespell
+        shell: pwsh
+        run: codespell .
+
+      - name: Run repository test plan
+        shell: pwsh
+        run: ./tests/test-plan.ps1
