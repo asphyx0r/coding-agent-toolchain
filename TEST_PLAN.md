@@ -115,7 +115,7 @@ not overlap.
 | `MATRIX-003` | Coverage status | Validate accepted `Coverage` status forms and the example row. | The contract lists every accepted status form, and the example uses one. |
 | `MATRIX-004` | References | Validate every referenced test ID. | Each reference resolves to a documented direct test or structural check. |
 | `MATRIX-005` | Coverage boundary | Document that full cartesian row validation is not currently claimed. | The test plan states that complete cartesian matrix validation is future work. |
-| `MATRIX-006` | Canonical tools | Cross-check every canonical tool against documented tool coverage rows. | Each tool appears for each declared platform installer and expected status path. |
+| `MATRIX-006` | Canonical tools | Cross-check every canonical tool against documented tool coverage rows. | Each tool appears once, declared platform kinds match the manifest, and each kind maps to required dispatch or unavailable coverage. |
 
 ### Static Quality Tests
 

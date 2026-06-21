@@ -3984,7 +3984,7 @@ function Get-ManifestTool {
 function Get-TestPlanToolCoverage {
     $testPlanText = Get-RepositoryText -RelativePath 'TEST_PLAN.md'
     $coverageRows = [System.Collections.Generic.List[object]]::new()
-    $pattern = '^\| `(?<Id>TOOL-\d{3})` \| `(?<Tool>[^`]+)` \| `(?<Windows>[^`]+)` \| `(?<Linux>[^`]+)` \|'
+    $pattern = '^\| `(?<Id>TOOL-\d{3})` \| `(?<Tool>[^`]+)` \| `(?<Windows>[^`]+)` \| `(?<Linux>[^`]+)` \| (?<Coverage>.+) \|$'
     foreach ($line in $testPlanText -split '\r?\n') {
         $match = [regex]::Match($line, $pattern)
         if (-not $match.Success) {
@@ -3996,10 +3996,43 @@ function Get-TestPlanToolCoverage {
             Tool = $match.Groups['Tool'].Value
             WindowsKind = $match.Groups['Windows'].Value
             LinuxKind = $match.Groups['Linux'].Value
+            RequiredCoverage = $match.Groups['Coverage'].Value
         })
     }
 
     return $coverageRows.ToArray()
+}
+
+function Get-ExpectedInstallerCoverageId {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Kind
+    )
+
+    $coverageByKind = @{
+        'appimage_extract' = @('DISPATCH-013')
+        'brew' = @('DISPATCH-006')
+        'chocolatey' = @('DISPATCH-008')
+        'conda_forge' = @('DISPATCH-016')
+        'direct_binary' = @('DISPATCH-009')
+        'direct_installer' = @('DISPATCH-012')
+        'github_release_asset' = @('DISPATCH-010')
+        'npm_global' = @('DISPATCH-004')
+        'pip' = @('DISPATCH-001')
+        'portable_archive' = @('DISPATCH-011')
+        'powershell_gallery' = @('DISPATCH-005')
+        'python_user' = @('DISPATCH-002')
+        'source_make' = @('DISPATCH-014')
+        'unavailable' = @('MANIFEST-009', 'INSTALL-007')
+        'uv_tool' = @('DISPATCH-003')
+        'winget' = @('DISPATCH-007')
+    }
+
+    if (-not $coverageByKind.ContainsKey($Kind)) {
+        return @()
+    }
+
+    return @($coverageByKind[$Kind])
 }
 
 function Get-TestPlanId {
@@ -4168,6 +4201,26 @@ function Test-CanonicalManifestCoverage {
             -Name "TOOL Linux kind: $($tool.Id)" `
             -Condition ($row.LinuxKind -eq $linuxKind) `
             -FailureDetail "Expected '$linuxKind' but TEST_PLAN.md says '$($row.LinuxKind)'."
+
+        $coverageIds = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+        foreach ($coverageId in (Expand-TestIdReference -Text $row.RequiredCoverage)) {
+            $null = $coverageIds.Add($coverageId)
+        }
+
+        foreach ($kind in @($windowsKind, $linuxKind) | Sort-Object -Unique) {
+            $expectedCoverageIds = @(Get-ExpectedInstallerCoverageId -Kind $kind)
+            Test-CheckCondition `
+                -Name "TOOL expected coverage kind: $($tool.Id) $kind" `
+                -Condition ($expectedCoverageIds.Count -gt 0) `
+                -FailureDetail "Installer kind '$kind' has no MATRIX-006 coverage mapping."
+
+            foreach ($expectedCoverageId in $expectedCoverageIds) {
+                Test-CheckCondition `
+                    -Name "TOOL coverage reference: $($tool.Id) $expectedCoverageId" `
+                    -Condition ($coverageIds.Contains($expectedCoverageId)) `
+                    -FailureDetail "TEST_PLAN.md must reference '$expectedCoverageId' for installer kind '$kind'."
+            }
+        }
     }
 }
 
