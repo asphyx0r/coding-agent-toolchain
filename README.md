@@ -286,10 +286,11 @@ actionlint .github/workflows/validation.yml
 .\tests\test-plan.ps1
 ```
 
-The GitHub Actions validation workflow uses major-version action tags and
-installs current validation tools from npm, pip, Chocolatey, and PowerShell
-Gallery. Treat this workflow as a moving validation gate, not as a
-reproducible pinned release build.
+The GitHub Actions validation workflow pins action references to full commit
+SHAs with reviewed version comments, while installing current validation tools
+from npm, pip, Go, Chocolatey, and PowerShell Gallery. Treat the installed
+tool versions as a moving validation gate, not as a reproducible pinned release
+build.
 
 The complete repository test plan is documented in
 [`TEST_PLAN.md`](TEST_PLAN.md). It defines the required CLI, manifest, installer,
