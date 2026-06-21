@@ -1059,76 +1059,109 @@ github_release_asset_url() {
   printf '%s' "${asset_url}"
 }
 
-extract_tar_xz() {
+extract_archive_with_python() {
   local archive_path="$1"
   local target_dir="$2"
+  local archive_kind="$3"
   local python_command_path=""
 
-  if command -v xz >/dev/null 2>&1; then
-    log_verbose "Running command: tar -xJf ${archive_path} -C ${target_dir}"
-    tar -xJf "${archive_path}" -C "${target_dir}"
-    return
-  fi
-
   if ! python_command_path="$(python_command 2>/dev/null)"; then
-    log_error "Extracting '${archive_path}' requires xz or Python with lzma support."
+    log_error "Extracting '${archive_path}' requires Python for safe archive validation."
     return 1
   fi
 
-  log_verbose "Extracting '${archive_path}' to '${target_dir}' with Python tarfile."
-  CAT_ARCHIVE_PATH="${archive_path}" CAT_TARGET_DIR="${target_dir}" "${python_command_path}" -c '
+  log_verbose "Extracting '${archive_path}' to '${target_dir}' with Python safe archive validation."
+  CAT_ARCHIVE_KIND="${archive_kind}" CAT_ARCHIVE_PATH="${archive_path}" CAT_TARGET_DIR="${target_dir}" "${python_command_path}" -c '
 import os
+import posixpath
+import stat
 import tarfile
+import zipfile
 
+archive_kind = os.environ["CAT_ARCHIVE_KIND"]
 archive_path = os.environ["CAT_ARCHIVE_PATH"]
 target_dir = os.path.abspath(os.environ["CAT_TARGET_DIR"])
 
-with tarfile.open(archive_path, "r:xz") as archive:
-    for member in archive.getmembers():
-        member_path = os.path.abspath(os.path.join(target_dir, member.name))
-        if member_path != target_dir and not member_path.startswith(target_dir + os.sep):
-            raise RuntimeError(f"Unsafe archive member: {member.name}")
-    try:
-        archive.extractall(target_dir, filter="data")
-    except TypeError:
+
+def safe_target_path(member_name):
+    normalized = posixpath.normpath(member_name.replace("\\", "/"))
+    if (
+        not normalized
+        or normalized == "."
+        or normalized == ".."
+        or normalized.startswith("../")
+        or posixpath.isabs(normalized)
+    ):
+        raise RuntimeError(f"Unsafe archive member: {member_name}")
+    member_path = os.path.abspath(os.path.join(target_dir, normalized))
+    if os.path.commonpath([target_dir, member_path]) != target_dir:
+        raise RuntimeError(f"Unsafe archive member: {member_name}")
+
+
+def extract_tar(mode):
+    with tarfile.open(archive_path, mode) as archive:
+        for member in archive.getmembers():
+            safe_target_path(member.name)
+            if member.issym() or member.islnk() or not (member.isfile() or member.isdir()):
+                raise RuntimeError(f"Unsafe archive member: {member.name}")
+        try:
+            archive.extractall(target_dir, filter="data")
+        except TypeError:
+            archive.extractall(target_dir)
+
+
+def extract_zip():
+    with zipfile.ZipFile(archive_path) as archive:
+        for member in archive.infolist():
+            safe_target_path(member.filename)
+            mode = member.external_attr >> 16
+            file_type = stat.S_IFMT(mode) if mode else 0
+            if member.is_dir():
+                continue
+            if file_type and file_type != stat.S_IFREG:
+                raise RuntimeError(f"Unsafe archive member: {member.filename}")
         archive.extractall(target_dir)
+
+
+if archive_kind == "tar_xz":
+    extract_tar("r:xz")
+elif archive_kind == "tar_gz":
+    extract_tar("r:gz")
+elif archive_kind == "tar_bz2":
+    extract_tar("r:bz2")
+elif archive_kind == "zip":
+    extract_zip()
+else:
+    raise RuntimeError(f"Unsupported archive kind: {archive_kind}")
 '
+}
+
+extract_tar_xz() {
+  local archive_path="$1"
+  local target_dir="$2"
+
+  extract_archive_with_python "${archive_path}" "${target_dir}" tar_xz
 }
 
 extract_tar_bz2() {
   local archive_path="$1"
   local target_dir="$2"
-  local python_command_path=""
 
-  if command -v bzip2 >/dev/null 2>&1; then
-    log_verbose "Running command: tar -xjf ${archive_path} -C ${target_dir}"
-    tar -xjf "${archive_path}" -C "${target_dir}"
-    return
-  fi
+  extract_archive_with_python "${archive_path}" "${target_dir}" tar_bz2
+}
 
-  if ! python_command_path="$(python_command 2>/dev/null)"; then
-    log_error "Extracting '${archive_path}' requires bzip2 or Python with bz2 support."
-    return 1
-  fi
+extract_tar_gz() {
+  local archive_path="$1"
+  local target_dir="$2"
 
-  log_verbose "Extracting '${archive_path}' to '${target_dir}' with Python tarfile."
-  CAT_ARCHIVE_PATH="${archive_path}" CAT_TARGET_DIR="${target_dir}" "${python_command_path}" -c '
-import os
-import tarfile
+  extract_archive_with_python "${archive_path}" "${target_dir}" tar_gz
+}
 
-archive_path = os.environ["CAT_ARCHIVE_PATH"]
-target_dir = os.path.abspath(os.environ["CAT_TARGET_DIR"])
+extract_zip() {
+  local archive_path="$1"
+  local target_dir="$2"
 
-with tarfile.open(archive_path, "r:bz2") as archive:
-    for member in archive.getmembers():
-        member_path = os.path.abspath(os.path.join(target_dir, member.name))
-        if member_path != target_dir and not member_path.startswith(target_dir + os.sep):
-            raise RuntimeError(f"Unsafe archive member: {member.name}")
-    try:
-        archive.extractall(target_dir, filter="data")
-    except TypeError:
-        archive.extractall(target_dir)
-'
+  extract_archive_with_python "${archive_path}" "${target_dir}" zip
 }
 
 installer_download_url() {
@@ -1609,16 +1642,10 @@ extract_downloaded_archive() {
     extract_tar_xz "${download_path}" "${target_dir}"
     ;;
   tar_gz)
-    log_verbose "Running command: tar -xzf ${download_path} -C ${target_dir}"
-    tar -xzf "${download_path}" -C "${target_dir}"
+    extract_tar_gz "${download_path}" "${target_dir}"
     ;;
   zip)
-    if ! command -v unzip >/dev/null 2>&1; then
-      log_error "Tool '${tool_ids[index]}' requires unzip for zip archive extraction."
-      return 1
-    fi
-    log_verbose "Running command: unzip -q ${download_path} -d ${target_dir}"
-    unzip -q "${download_path}" -d "${target_dir}"
+    extract_zip "${download_path}" "${target_dir}"
     ;;
   *)
     log_error "Unsupported archive_kind '${archive_kind}' for tool '${tool_ids[index]}'."

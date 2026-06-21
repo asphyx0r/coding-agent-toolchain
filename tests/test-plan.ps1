@@ -1905,6 +1905,9 @@ function Initialize-LinuxDirectBinaryFixture {
             'ArchiveZipPath',
             'ArchiveTarGz',
             'ArchiveTarXz',
+            'ArchiveZipUnsafe',
+            'ArchiveTarGzUnsafe',
+            'ArchiveTarXzUnsafe',
             'ArchiveMissing',
             'PortableArchive',
             'GitHubRelease',
@@ -2010,12 +2013,14 @@ function Initialize-LinuxDirectBinaryFixture {
         '    entry_name="nested/sample-tool"',
         '  elif [[ "${selected_source_mode}" == "ArchiveMissing" ]]; then',
         '    entry_name="nested/other-tool"',
+        '  elif [[ "${selected_source_mode}" == *Unsafe ]]; then',
+        '    entry_name="../sample-tool"',
         '  fi',
         '  write_archive_payload "${payload_path}"',
         '  case "${selected_source_mode}" in',
-        '  ArchiveZipRoot|ArchiveZipPath|ArchiveMissing) create_zip_archive "${archive_path}" "${payload_path}" "${entry_name}" ;;',
-        '  ArchiveTarGz) create_tar_archive "${archive_path}" "${payload_path}" "${entry_name}" "w:gz" ;;',
-        '  ArchiveTarXz) create_tar_archive "${archive_path}" "${payload_path}" "${entry_name}" "w:xz" ;;',
+        '  ArchiveZipRoot|ArchiveZipPath|ArchiveMissing|ArchiveZipUnsafe) create_zip_archive "${archive_path}" "${payload_path}" "${entry_name}" ;;',
+        '  ArchiveTarGz|ArchiveTarGzUnsafe) create_tar_archive "${archive_path}" "${payload_path}" "${entry_name}" "w:gz" ;;',
+        '  ArchiveTarXz|ArchiveTarXzUnsafe) create_tar_archive "${archive_path}" "${payload_path}" "${entry_name}" "w:xz" ;;',
         '  esac',
         '}',
         'create_portable_archive_source() {',
@@ -2535,6 +2540,30 @@ function Test-LinuxArchiveInstallFlow {
             ArchivePath = ''
             ExpectedText = 'Installing extracted binary'
             ShouldSucceed = $true
+        }
+        [pscustomobject]@{
+            Name = 'ARCHIVE-010 linux: unsafe zip archive'
+            SourceMode = 'ArchiveZipUnsafe'
+            ArchiveKind = 'zip'
+            ArchivePath = ''
+            ExpectedText = 'Unsafe archive member'
+            ShouldSucceed = $false
+        }
+        [pscustomobject]@{
+            Name = 'ARCHIVE-011 linux: unsafe tar.gz archive'
+            SourceMode = 'ArchiveTarGzUnsafe'
+            ArchiveKind = 'tar_gz'
+            ArchivePath = ''
+            ExpectedText = 'Unsafe archive member'
+            ShouldSucceed = $false
+        }
+        [pscustomobject]@{
+            Name = 'ARCHIVE-012 linux: unsafe tar.xz archive'
+            SourceMode = 'ArchiveTarXzUnsafe'
+            ArchiveKind = 'tar_xz'
+            ArchivePath = ''
+            ExpectedText = 'Unsafe archive member'
+            ShouldSucceed = $false
         }
         [pscustomobject]@{
             Name = 'ARCHIVE-007 linux: missing archive executable'
