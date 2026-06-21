@@ -126,8 +126,8 @@ not overlap.
 | `STATIC-003` | Bash | Run `bash -n scripts/install-tools.sh`. | Bash syntax passes. |
 | `STATIC-004` | Bash | Run `shellcheck scripts/install-tools.sh`. | No ShellCheck findings. |
 | `STATIC-007` | Bash | Run `shfmt -d -i 2 scripts/install-tools.sh` when available. | No formatting diff. |
-| `STATIC-005` | PowerShell | Parse `scripts/install-tools.ps1` with the PowerShell parser. | No parse errors. |
-| `STATIC-006` | PowerShell | Run `Invoke-ScriptAnalyzer` when available. | No analyzer findings. |
+| `STATIC-005` | PowerShell | Parse PowerShell scripts with the PowerShell parser. | No parse errors. |
+| `STATIC-006` | PowerShell | Run `Invoke-ScriptAnalyzer` against PowerShell scripts when available. | No analyzer findings. |
 
 ### Safety Boundary Tests
 
@@ -436,19 +436,28 @@ shellcheck scripts/install-tools.sh
 When PowerShell scripts change, also run:
 
 ```powershell
-$tokens = $null
-$errors = $null
-[System.Management.Automation.Language.Parser]::ParseFile(
-    (Resolve-Path .\scripts\install-tools.ps1),
-    [ref] $tokens,
-    [ref] $errors
-) > $null
-if ($errors) {
-    $errors
-    exit 1
+$scriptPaths = @(
+    ".\scripts\install-tools.ps1",
+    ".\tests\test-plan.ps1"
+)
+
+foreach ($scriptPath in $scriptPaths) {
+    $tokens = $null
+    $errors = $null
+    [System.Management.Automation.Language.Parser]::ParseFile(
+        (Resolve-Path $scriptPath),
+        [ref] $tokens,
+        [ref] $errors
+    ) > $null
+    if ($errors) {
+        $errors
+        exit 1
+    }
 }
 
-Invoke-ScriptAnalyzer -Path .\scripts\install-tools.ps1
+foreach ($scriptPath in $scriptPaths) {
+    Invoke-ScriptAnalyzer -Path $scriptPath
+}
 ```
 
 For test-plan-only changes, the script checks are still useful as confidence

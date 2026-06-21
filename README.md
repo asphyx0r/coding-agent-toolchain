@@ -303,19 +303,28 @@ bash -n scripts/install-tools.sh
 shfmt -d -i 2 scripts/install-tools.sh
 shellcheck scripts/install-tools.sh
 
-$tokens = $null
-$errors = $null
-[System.Management.Automation.Language.Parser]::ParseFile(
-    (Resolve-Path .\scripts\install-tools.ps1),
-    [ref] $tokens,
-    [ref] $errors
-) > $null
-if ($errors) {
-    $errors
-    exit 1
+$scriptPaths = @(
+    ".\scripts\install-tools.ps1",
+    ".\tests\test-plan.ps1"
+)
+
+foreach ($scriptPath in $scriptPaths) {
+    $tokens = $null
+    $errors = $null
+    [System.Management.Automation.Language.Parser]::ParseFile(
+        (Resolve-Path $scriptPath),
+        [ref] $tokens,
+        [ref] $errors
+    ) > $null
+    if ($errors) {
+        $errors
+        exit 1
+    }
 }
 
-Invoke-ScriptAnalyzer -Path .\scripts\install-tools.ps1
+foreach ($scriptPath in $scriptPaths) {
+    Invoke-ScriptAnalyzer -Path $scriptPath
+}
 ```
 
 ## Security
