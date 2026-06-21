@@ -148,23 +148,6 @@ function Clear-RuntimeDirectory {
     }
 }
 
-function Clear-StaleRuntimeRoot {
-    if (-not (Test-Path -LiteralPath $Script:RuntimeRoot -PathType Container)) {
-        return
-    }
-
-    $runtimeRootPath = [IO.Path]::GetFullPath($Script:RuntimeRoot)
-    $repoRootPath = [IO.Path]::GetFullPath($RepoRoot).TrimEnd(
-        [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
-    )
-    $isExpectedRuntimeRoot = (Split-Path -Leaf $runtimeRootPath) -eq '.test-runtime' -and
-        $runtimeRootPath.StartsWith("$repoRootPath$([IO.Path]::DirectorySeparatorChar)", [StringComparison]::OrdinalIgnoreCase)
-
-    if ($isExpectedRuntimeRoot) {
-        Remove-Item -LiteralPath $runtimeRootPath -Recurse -Force -ErrorAction SilentlyContinue
-    }
-}
-
 function Test-CheckCondition {
     param(
         [Parameter(Mandatory = $true)]
@@ -4318,7 +4301,6 @@ function Invoke-TestPlanCheck {
 
 Push-Location -LiteralPath $RepoRoot
 try {
-    Clear-StaleRuntimeRoot
     Invoke-TestPlanCheck
 } finally {
     Pop-Location
