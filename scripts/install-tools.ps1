@@ -37,7 +37,7 @@ if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
     $ConfigPath = Join-Path -Path $ScriptRoot -ChildPath '..\config\tools.yaml'
 }
 
-Set-Variable -Name ToolVersionFallback -Value 'v1.4.1' -Option Constant -Scope Script
+Set-Variable -Name ToolVersionFallback -Value 'v1.4.1' -Option Constant -Scope Script -WhatIf:$false
 
 function Get-ScriptVersion {
     $repositoryRoot = [IO.Path]::GetFullPath((Join-Path -Path $ScriptRoot -ChildPath '..'))
@@ -64,7 +64,7 @@ function Get-ScriptVersion {
     return $version
 }
 
-Set-Variable -Name ToolVersion -Value (Get-ScriptVersion) -Option Constant -Scope Script
+Set-Variable -Name ToolVersion -Value (Get-ScriptVersion) -Option Constant -Scope Script -WhatIf:$false
 $VerboseTraceEnabled = [bool]$VerboseTrace -or ($VerbosePreference -ne 'SilentlyContinue')
 $DryRunEnabled = [bool]$DryRun
 $RemoveEnabled = [bool]$Remove
