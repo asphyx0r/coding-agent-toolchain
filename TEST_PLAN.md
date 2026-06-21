@@ -420,6 +420,7 @@ changes.
 ```powershell
 markdownlint-cli2 "**/*.md"
 yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml .github/workflows/validation.yml
+actionlint .github/workflows/validation.yml
 .\tests\test-plan.ps1
 ```
 

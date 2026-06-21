@@ -27,6 +27,11 @@ jobs:
         with:
           python-version: "3.x"
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+
       - name: Install validation tools
         shell: pwsh
         run: |
@@ -34,6 +39,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install yamllint codespell
           choco install shellcheck --yes --no-progress
+          $goBin = Join-Path (go env GOPATH) "bin"
+          Add-Content -Path $env:GITHUB_PATH -Value $goBin
+          go install github.com/rhysd/actionlint/cmd/actionlint@latest
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module `
             -Name PSScriptAnalyzer `
@@ -49,6 +57,10 @@ jobs:
       - name: Run YAML lint
         shell: pwsh
         run: yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml .github/workflows/validation.yml
+
+      - name: Run actionlint
+        shell: pwsh
+        run: actionlint .github/workflows/validation.yml
 
       - name: Check Bash syntax
         shell: pwsh
