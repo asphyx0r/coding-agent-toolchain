@@ -45,6 +45,55 @@ Apply these rules before creating any commit.
 
 - Do not create the commit until every file included in the commit has passed
   this privacy review.
+
+### Automated Secret Scan
+
+- Before creating the commit, try to scan the staged content with Betterleaks
+  when `betterleaks` is installed and accessible to the agent.
+- Use `betterleaks git --staged --redact --no-banner` as the primary automated
+  secret scan for content that is staged for commit.
+- When modified or untracked files outside the index must also be validated,
+  scan each relevant path with
+  `betterleaks dir --redact --no-banner <path>`.
+- Respect Betterleaks' configuration resolution order: explicit `--config`,
+  environment-provided configuration, repository `.betterleaks.toml`,
+  repository `.gitleaks.toml`, then Betterleaks' default configuration.
+- If no repository Betterleaks or Gitleaks configuration exists, explicitly
+  warn the user, then use Betterleaks' default configuration only when
+  Betterleaks can load it and run its built-in secret checks.
+- If Betterleaks is not installed, is not accessible, cannot validate a file,
+  or cannot use either a repository configuration or its default configuration,
+  explicitly warn the user and run the Gitleaks fallback when Gitleaks is
+  installed and accessible to the agent.
+- For staged content, use `gitleaks protect --staged --redact --no-banner` as
+  the Gitleaks fallback check.
+- When modified or untracked files outside the index must be validated by the
+  Gitleaks fallback, scan each relevant path with
+  `gitleaks detect --no-git --source <path> --redact --no-banner`.
+- Use the repository's Gitleaks configuration when one exists and is readable by
+  Gitleaks.
+- If no repository Gitleaks configuration exists during the Gitleaks fallback,
+  explicitly warn the user, then use Gitleaks' default configuration together
+  with the manual privacy review in this section.
+- If neither Betterleaks nor Gitleaks can validate a file, explicitly warn the
+  user and perform the manual privacy review instead of blocking the commit only
+  because an automated scanner could not run.
+- The manual privacy review fallback must inspect every file being validated in
+  full and run a conservative text search for secrets, private keys, tokens,
+  passwords, private URLs, credentials, and real environment-specific values.
+- If Betterleaks or Gitleaks reports a leak, block the commit, notify the user
+  with redacted scanner output, and do not treat a fallback review as a way to
+  override the scanner finding.
+- If Betterleaks or Gitleaks returns an error or warning that prevents
+  validating a file, report the useful error details to the user, run the next
+  available fallback for the affected file, and ask the user before committing
+  if uncertainty remains.
+- The absence of Betterleaks, Gitleaks, or a repository scanner configuration
+  does not block the commit by itself. Confirmed sensitive data or unresolved
+  uncertainty about sensitive data must block the commit.
+
+### Manual Privacy Review
+
 - Never commit a `.env` file containing real environment values, secrets,
   credentials, private URLs, tokens, passwords, or API keys.
 - Commit only `.env` templates that contain placeholders or documented example

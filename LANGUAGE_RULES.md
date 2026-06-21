@@ -3009,7 +3009,7 @@ rule for framework code.
 ### Naming
 
 - Use idiomatic Rust naming consistently: `snake_case` for functions, methods, variables, and modules; `UpperCamelCase`
-  for types, traits, and enum variants; and `SCREAMING_SNAKE_CASE` for constants and `static` items.
+  for types, traits, and enum variants; and `SCREAMING_SNAKE_CASE` for constants and statics.
 - Follow Rust API naming conventions for conversions, getters, iterator methods, and Cargo feature names.
 - Choose names that make call sites predictable and do not encode implementation details that callers should not depend
   on.
@@ -3733,6 +3733,181 @@ layering, build context, and image-runtime concerns in this section.
 - Do not generalize framework or platform rules to YAML itself.
 - Apply Kubernetes, Home Assistant, dbt, Ansible, GitLab CI, Elastic, or similar
   conventions only inside the matching ecosystem.
+
+## YAML for GitHub Actions
+
+### Naming
+
+- Store GitHub Actions workflow files only under `.github/workflows/` with the
+  `.yml` or `.yaml` suffix.
+- Give each workflow a clear and unique top-level `name` that describes its
+  purpose, such as `CI`, `Release`, `CodeQL`, or `Deploy production`.
+- Use descriptive job identifiers for clear pipeline phases, such as `lint`,
+  `test`, `build`, `package`, `security-scan`, or `deploy`.
+- Use descriptive job and step `name` values so GitHub Actions logs are readable
+  without opening the workflow file.
+- Use explicit `runs-on` labels that identify the required runner type, and do
+  not select self-hosted runner labels accidentally for generic jobs.
+
+### Formatting
+
+- Apply the generic `YAML` rules before applying this GitHub Actions section.
+- Use explicit `on` triggers such as `push`, `pull_request`,
+  `workflow_dispatch`, or `schedule`; avoid broad triggers that run workflows
+  unnecessarily.
+- Add branch, tag, or path filters when a workflow applies only to part of the
+  repository.
+- Define explicit `workflow_dispatch` inputs when a manual workflow needs
+  human-controlled parameters.
+- Use `concurrency` for deployments, shared environments, release workflows, or
+  expensive jobs, with a stable group that prevents race conditions and
+  duplicate runs.
+- Keep workflow files focused by lifecycle purpose, such as CI, release,
+  deployment, scheduled maintenance, or security scanning.
+- Model each job as one clear pipeline phase, and do not mix unrelated
+  responsibilities inside the same job.
+- Use `needs` to express job dependencies; do not rely on YAML order to imply
+  execution order between jobs.
+- Keep steps atomic and debuggable: checkout, runtime setup, dependency
+  installation, linting, testing, building, artifact upload, or deployment.
+- Use `strategy.matrix` only when multiple versions, operating systems,
+  runtimes, or configurations must be tested.
+- Do not add a matrix for a single environment.
+- Set `timeout-minutes` on jobs that could hang or consume runner time
+  indefinitely.
+- Use job outputs for small structured values passed between jobs, such as a
+  version, image tag, or generated path.
+- Use artifacts only for build outputs that must be shared, reviewed,
+  downloaded, or deployed.
+- Cache dependency directories only when the cache key is tied to lockfiles or
+  equivalent dependency manifests.
+- Build cache keys from stable inputs such as `runner.os` and dependency-file
+  hashes; avoid cache keys that change on every run.
+- Use `restore-keys` only when partial cache reuse is acceptable, and avoid broad
+  restore keys when stale dependencies could produce incorrect builds.
+- Run cheap validation steps before expensive build, packaging, release, or
+  deployment steps.
+- Use matrix parallelism only when the workload is safely parallelizable.
+- Do not parallelize steps that mutate shared external state unless every worker
+  is isolated.
+
+### Errors
+
+- Treat missing or overly broad workflow triggers as defects when the workflow
+  should run only for specific branches, tags, paths, events, or manual inputs.
+- Treat implicit job ordering as a workflow defect; job dependencies must be
+  declared with `needs` when ordering matters.
+- Treat missing `timeout-minutes` as a defect for jobs that can hang or run for a
+  long time.
+- Treat cache keys that are not tied to dependency manifests as defects when
+  stale dependencies can change build results.
+- Treat artifacts containing secrets, credentials, tokens, private keys, or
+  sensitive configuration as blocking defects.
+- Treat direct interpolation of untrusted event values inside `run` commands as
+  a script-injection defect.
+- Treat privileged workflows that check out or execute untrusted pull request
+  code as blocking security defects.
+- Treat `actionlint` errors as blocking workflow defects unless the user
+  explicitly accepts the reported risk.
+
+### Safety
+
+- Define `permissions` explicitly at the workflow level, using a restrictive
+  default such as `contents: read`.
+- Grant write permissions only to jobs that must write to the repository,
+  pull requests, packages, deployments, or another protected resource.
+- Do not give `contents: write`, `pull-requests: write`, `packages: write`, or
+  similar scopes to lint, test, or build jobs unless they require them.
+- Store sensitive values only in GitHub Secrets or protected environments.
+- Never hardcode credentials, tokens, API keys, certificates, private keys, or
+  passwords in workflow YAML.
+- Do not rely on GitHub log redaction as the only protection for secrets.
+- Avoid printing secrets, transformed secrets, encoded secrets, or structured
+  secret blobs to logs.
+- Use environment protection rules, reviewers, or approval gates for sensitive
+  deployments.
+- Prefer OpenID Connect for cloud authentication when the provider supports it.
+- Prefer short-lived, scoped cloud credentials over long-lived cloud access keys
+  stored as repository secrets.
+- Pin third-party actions to a full-length commit SHA; do not use mutable
+  references such as `main`, `master`, `latest`, or moving branch names.
+- When a pinned action SHA corresponds to a reviewed release or tag, add a
+  human-readable version comment such as `# v4.2.2` so the immutable reference
+  remains auditable.
+- Prefer official GitHub actions or trusted, reviewed actions.
+- Before adding a third-party action, verify its maintainer, repository activity,
+  release history, and source behavior.
+- Do not use an unreviewed marketplace action when a simple shell command or an
+  official action is sufficient.
+- Track workflow action dependencies through available dependency graph,
+  advisory, and security tooling.
+- Protect workflow changes with `CODEOWNERS` or equivalent review rules when the
+  repository supports protected reviews.
+- Avoid `pull_request_target` unless the workflow truly requires privileged
+  context.
+- Use `pull_request` for normal pull request validation.
+- Never combine secrets, write tokens, or privileged triggers with execution of
+  untrusted pull request code.
+- Treat event payload values such as pull request titles, issue bodies, branch
+  names, commit messages, and user-controlled fields as untrusted input.
+- Pass untrusted expression values through intermediate environment variables
+  before using them in scripts.
+- Quote shell variables that contain untrusted values and avoid direct
+  expression interpolation inside `run` commands.
+- Prefer a dedicated action over inline shell when processing complex untrusted
+  input.
+- Prefer GitHub-hosted runners for public repositories and untrusted pull
+  request workflows.
+- Use self-hosted runners only for trusted repositories, trusted workflows, and
+  isolated runner groups.
+- Do not place long-lived secrets, private keys, or sensitive network access on
+  self-hosted runners unless the workflow explicitly requires them.
+
+### Tests
+
+- Apply this section only to GitHub Actions workflow files under
+  `.github/workflows/*.yml` or `.github/workflows/*.yaml`.
+- Before presenting or committing created or modified GitHub Actions workflow
+  files, validate the affected workflow files with `actionlint`.
+- Use the repository's existing `actionlint` configuration when one exists.
+- If `actionlint` is not installed, unavailable, inaccessible, or unable to
+  validate the affected workflow files, explicitly warn the user and use the
+  best available fallback validation.
+- The fallback validation must include YAML syntax or style validation with
+  `yamllint`, a YAML parser, or an equivalent repository tool.
+- The fallback validation must also include manual review of GitHub Actions
+  workflow syntax, triggers, jobs, expressions, reusable workflow calls, action
+  inputs, runner labels, and visible secrets or environment-variable handling.
+- State that fallback validation does not replace a successful `actionlint` run.
+- Validate deployment, release, privileged, and self-hosted-runner workflows for
+  permissions, secrets, concurrency, environment gates, and untrusted-code
+  execution before treating them as safe.
+
+### Idioms
+
+- Use reusable workflows with `workflow_call` for repeated CI/CD patterns across
+  repositories or workflow files.
+- Do not create reusable workflows for one-off logic that is clearer directly in
+  the workflow file.
+- Keep workflow YAML readable before making it clever.
+- Prefer explicit job names, step names, inputs, permissions, environments, and
+  runner declarations over dense expressions.
+- Document non-obvious workflow decisions inline with short comments, especially
+  unusual permissions, privileged triggers, deployment gates, concurrency groups,
+  and security exceptions.
+- Use starter workflows and examples as templates, not as unquestioned final
+  workflows.
+- Adapt workflow templates to the repository triggers, permissions, secrets,
+  runtime versions, and deployment model.
+
+### Other
+
+- Apply this section in addition to the generic `YAML` section; when the two
+  sections overlap, prefer the GitHub Actions-specific rule.
+- Do not apply GitHub Actions workflow rules to generic YAML files, Kubernetes
+  manifests, GitLab CI files, or other CI configuration formats.
+- Do not introduce third-party actions, reusable workflows, self-hosted runners,
+  or privileged triggers unless they solve a documented workflow requirement.
 
 ## YAML for Kubernetes
 
