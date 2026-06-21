@@ -3293,11 +3293,124 @@ function Test-PrefixPathValidation {
     }
 }
 
+function Test-PrefixPhysicalEscapeRejection {
+    foreach ($platform in @('windows', 'linux')) {
+        $layout = Initialize-IsolatedScriptLayout -ManifestContent (Get-DryRunManifestContent)
+        $configPath = Get-PlatformPathArgument -Platform $platform -Path $layout.ManifestPath
+        $externalPrefix = Initialize-TemporaryPrefixDirectory
+        $externalToolRoot = Join-Path -Path $externalPrefix -ChildPath 'coding-agent-toolchain'
+
+        if ($platform -eq 'windows') {
+            $userProfileRoot = [Environment]::GetFolderPath('UserProfile')
+            $publicRoot = $env:PUBLIC
+            if ([string]::IsNullOrWhiteSpace($userProfileRoot) -or
+                -not (Test-Path -LiteralPath $userProfileRoot -PathType Container)) {
+                Register-CheckWarning 'PATH-018 windows skipped because the user profile is unavailable.'
+                continue
+            }
+            if ([string]::IsNullOrWhiteSpace($publicRoot) -or
+                -not (Test-Path -LiteralPath $publicRoot -PathType Container)) {
+                Register-CheckWarning 'PATH-018 windows skipped because the public profile is unavailable.'
+                continue
+            }
+
+            $profileFixtureRoot = Join-Path -Path $userProfileRoot -ChildPath (
+                '.cat-test-' + [guid]::NewGuid().ToString('N')
+            )
+            $externalPrefix = Join-Path -Path $publicRoot -ChildPath (
+                '.cat-test-' + [guid]::NewGuid().ToString('N')
+            )
+            $externalToolRoot = Join-Path -Path $externalPrefix -ChildPath 'coding-agent-toolchain'
+            $escapedPrefix = Join-Path -Path $profileFixtureRoot -ChildPath 'escaped-prefix'
+            try {
+                New-Item -ItemType Directory -Path $profileFixtureRoot -ErrorAction Stop | Out-Null
+                New-Item -ItemType Directory -Path $externalPrefix -ErrorAction Stop | Out-Null
+                New-Item -ItemType Junction -Path $escapedPrefix -Target $externalPrefix -ErrorAction Stop | Out-Null
+            } catch {
+                Register-CheckWarning "PATH-018 windows skipped because link setup failed: $($_.Exception.Message)"
+                if (Test-Path -LiteralPath $profileFixtureRoot -PathType Container) {
+                    Remove-Item -LiteralPath $profileFixtureRoot -Force -ErrorAction SilentlyContinue
+                }
+                if (Test-Path -LiteralPath $externalPrefix -PathType Container) {
+                    Remove-Item -LiteralPath $externalPrefix -Recurse -Force -ErrorAction SilentlyContinue
+                }
+                continue
+            }
+
+            try {
+                $result = Invoke-IsolatedToolScript `
+                    -Platform $platform `
+                    -Layout $layout `
+                    -Arguments @('-d', '-c', $configPath, '-p', $escapedPrefix)
+                Test-NonzeroExitCode -Name 'PATH-018 windows: linked prefix fails' -Result $result
+                Test-ResultText `
+                    -Name 'PATH-018 windows: linked prefix diagnostic' `
+                    -Result $result `
+                    -ExpectedText '--prefix must point inside'
+                Register-CheckResult `
+                    -Name 'PATH-018 windows: escaped target remains untouched' `
+                    -Passed (-not (Test-Path -LiteralPath $externalToolRoot)) `
+                    -Detail "Unexpected escaped target '$externalToolRoot'."
+            } finally {
+                if (Test-Path -LiteralPath $escapedPrefix) {
+                    try {
+                        [IO.Directory]::Delete($escapedPrefix)
+                    } catch {
+                        Register-CheckWarning "Could not remove PATH-018 junction '$escapedPrefix': $($_.Exception.Message)"
+                    }
+                }
+                if (Test-Path -LiteralPath $profileFixtureRoot -PathType Container) {
+                    Remove-Item -LiteralPath $profileFixtureRoot -Force -ErrorAction SilentlyContinue
+                }
+                if (Test-Path -LiteralPath $externalPrefix -PathType Container) {
+                    Remove-Item -LiteralPath $externalPrefix -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            }
+            continue
+        }
+
+        $bashCommand = Get-Command -Name bash -ErrorAction SilentlyContinue
+        if ($null -eq $bashCommand) {
+            Register-CheckWarning 'PATH-018 linux skipped because bash is unavailable.'
+            continue
+        }
+
+        $homePath = ConvertTo-BashPath -Path $layout.Home
+        $escapedPrefix = Join-Path -Path $layout.Home -ChildPath 'escaped-prefix'
+        $escapedPrefixPath = ConvertTo-BashPath -Path $escapedPrefix
+        $externalPrefixPath = ConvertTo-BashPath -Path $externalPrefix
+        $linkCommand = 'ln -s -- ' +
+            (ConvertTo-BashSingleQuotedLiteral -Value $externalPrefixPath) + ' ' +
+            (ConvertTo-BashSingleQuotedLiteral -Value $escapedPrefixPath)
+        $linkResult = Invoke-CommandCapture -Command $bashCommand.Source -Arguments @('-lc', $linkCommand)
+        if ($linkResult.ExitCode -ne 0) {
+            Register-CheckWarning "PATH-018 linux skipped because a symlink could not be created: $($linkResult.Output)"
+            continue
+        }
+
+        $result = Invoke-IsolatedToolScript `
+            -Platform $platform `
+            -Layout $layout `
+            -Arguments @('-d', '-c', $configPath, '-p', $escapedPrefixPath) `
+            -Environment @{ HOME = $homePath }
+        Test-NonzeroExitCode -Name 'PATH-018 linux: linked prefix fails' -Result $result
+        Test-ResultText `
+            -Name 'PATH-018 linux: linked prefix diagnostic' `
+            -Result $result `
+            -ExpectedText '--prefix must point inside'
+        Register-CheckResult `
+            -Name 'PATH-018 linux: escaped target remains untouched' `
+            -Passed (-not (Test-Path -LiteralPath $externalToolRoot)) `
+            -Detail "Unexpected escaped target '$externalToolRoot'."
+    }
+}
+
 function Test-DirectDispatchAndInstall {
     Test-InstallNoopFlow
     Test-DispatchUnsupportedKind
     Test-DefaultPathResolution
     Test-PrefixPathValidation
+    Test-PrefixPhysicalEscapeRejection
     Test-PathNoopStatus
     Test-LinuxInteropCommandPath
     Test-LinuxDirectBinaryInstallFlow

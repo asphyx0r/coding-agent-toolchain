@@ -2387,8 +2387,16 @@ run_remove_mode() {
 }
 
 validate_prefix_root() {
+  local home_physical
+  local prefix_physical
+
   if [[ -z "${prefix_root}" ]]; then
     return 0
+  fi
+
+  if [[ -z "${HOME:-}" || ! -d "${HOME}" ]]; then
+    log_error "--prefix requires a valid current user's HOME directory."
+    return 2
   fi
 
   if [[ "${prefix_root}" != /* ]]; then
@@ -2400,7 +2408,19 @@ validate_prefix_root() {
     return 2
   fi
 
-  if [[ "${prefix_root}" == "${HOME}" || "${prefix_root}" == "${HOME}/"* ]]; then
+  prefix_physical="$(physical_directory "${prefix_root}")" || {
+    log_error "--prefix directory could not be resolved."
+    return 2
+  }
+  home_physical="$(physical_directory "${HOME}")" || {
+    log_error "--prefix requires a valid current user's HOME directory."
+    return 2
+  }
+
+  prefix_root="$(normalize_prefix_root "${prefix_physical}")"
+  home_physical="$(normalize_prefix_root "${home_physical}")"
+
+  if [[ "${prefix_root}" == "${home_physical}" || "${prefix_root}" == "${home_physical}/"* ]]; then
     return 0
   fi
 

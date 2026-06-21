@@ -128,10 +128,56 @@ if ($HelpEnabled) {
     exit 0
 }
 
+function Resolve-PhysicalDirectory {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$MissingMessage
+    )
+
+    $normalizedPath = [IO.Path]::GetFullPath($Path)
+    if (-not (Test-Path -LiteralPath $normalizedPath -PathType Container)) {
+        throw $MissingMessage
+    }
+
+    $item = Get-Item -LiteralPath $normalizedPath -Force
+    $targetProperty = $item.PSObject.Properties['Target']
+    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -and $null -ne $targetProperty) {
+        $targetValues = @(
+            @($targetProperty.Value) | Where-Object {
+                -not [string]::IsNullOrWhiteSpace([string]$_)
+            }
+        )
+        if ($targetValues.Count -gt 0) {
+            $targetPath = [string]$targetValues[0]
+            if (-not [IO.Path]::IsPathRooted($targetPath)) {
+                $targetPath = Join-Path -Path $item.Parent.FullName -ChildPath $targetPath
+            }
+
+            $normalizedTargetPath = [IO.Path]::GetFullPath($targetPath)
+            $targetExists = Test-Path -LiteralPath $normalizedTargetPath -PathType Container
+            if (-not $targetExists) {
+                throw $MissingMessage
+            }
+
+            $item = Get-Item -LiteralPath $normalizedTargetPath -Force
+        }
+    }
+
+    $trimChars = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+    return $item.FullName.TrimEnd($trimChars)
+}
+
 $InstallPrefix = ''
 if (-not [string]::IsNullOrWhiteSpace($Prefix)) {
-    $InstallPrefix = [IO.Path]::GetFullPath($Prefix)
-    $userProfileRoot = [IO.Path]::GetFullPath([Environment]::GetFolderPath('UserProfile'))
+    $InstallPrefix = Resolve-PhysicalDirectory `
+        -Path $Prefix `
+        -MissingMessage '--prefix must point to an existing directory inside the current user profile.'
+    $userProfileRoot = Resolve-PhysicalDirectory `
+        -Path ([Environment]::GetFolderPath('UserProfile')) `
+        -MissingMessage '--prefix requires a valid current user profile directory.'
     $trimChars = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
     $normalizedInstallPrefix = $InstallPrefix.TrimEnd($trimChars)
     $normalizedUserProfileRoot = $userProfileRoot.TrimEnd($trimChars)
@@ -147,10 +193,6 @@ if (-not [string]::IsNullOrWhiteSpace($Prefix)) {
 
     if (-not ($isUserProfileRoot -or $isUnderUserProfileRoot)) {
         throw '--prefix must point inside the current user profile to preserve user-scoped installation.'
-    }
-
-    if (-not (Test-Path -LiteralPath $normalizedInstallPrefix -PathType Container)) {
-        throw '--prefix must point to an existing directory inside the current user profile.'
     }
 
     $InstallPrefix = $normalizedInstallPrefix
