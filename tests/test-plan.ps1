@@ -1946,7 +1946,7 @@ function Initialize-LinuxDirectBinaryFixture {
         'source_mode="$2"',
         'existing_failure="$3"',
         'home_path="${runtime_path}/home"',
-        'xdg_data_home="${runtime_path}/xdg-data"',
+        'xdg_data_home="${home_path}/xdg-data"',
         'prefix_path="${home_path}/prefix"',
         'source_directory="${runtime_path}/source"',
         'fake_bin_directory="${runtime_path}/fake-bin"',
@@ -2326,7 +2326,8 @@ function Initialize-LinuxDirectBinaryFixture {
         $prefixPath = "$homePath/prefix"
         $toolDirectoryPath = "$prefixPath/coding-agent-toolchain/sample-tool"
         $machineName = Get-BashMachineName
-        $defaultToolDirectoryPath = "$runtimePath/xdg-data/coding-agent-toolchain/tools/linux-$machineName/sample-tool"
+        $defaultToolDirectoryPath = "$homePath/xdg-data/coding-agent-toolchain/tools/" +
+            "linux-$machineName/sample-tool"
         $fakeBinDirectoryPath = "$runtimePath/fake-bin"
 
         return [pscustomobject]@{
@@ -2346,7 +2347,7 @@ function Initialize-LinuxDirectBinaryFixture {
             PowerShellMarkerPath = "$runtimePath/pwsh-module/sample-tool/.coding-agent-toolchain"
             Environment = @{
                 HOME = $homePath
-                XDG_DATA_HOME = "$runtimePath/xdg-data"
+                XDG_DATA_HOME = "$homePath/xdg-data"
                 PATH = "${fakeBinDirectoryPath}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
                 CAT_TEST_SOURCE_FILE = "$runtimePath/source/sample-tool"
                 CAT_TEST_SOURCE_MODE = $SourceMode
@@ -3182,20 +3183,58 @@ function Test-DefaultPathResolution {
     }
 
     $xdgLayout = Initialize-IsolatedScriptLayout -ManifestContent (Get-DryRunManifestContent)
-    $xdgDataHome = Join-Path -Path $xdgLayout.Root -ChildPath 'xdg-data'
+    $xdgDataHome = Join-Path -Path $xdgLayout.Home -ChildPath 'xdg-data'
     New-Item -ItemType Directory -Path $xdgDataHome | Out-Null
+    $xdgHomePath = ConvertTo-BashPath -Path $xdgLayout.Home
     $xdgDataHomePath = ConvertTo-BashPath -Path $xdgDataHome
     $xdgConfigPath = Get-PlatformPathArgument -Platform 'linux' -Path $xdgLayout.ManifestPath
     $xdgResult = Invoke-IsolatedToolScript `
         -Platform 'linux' `
         -Layout $xdgLayout `
         -Arguments @('-d', '-v', '-c', $xdgConfigPath) `
-        -Environment @{ XDG_DATA_HOME = $xdgDataHomePath }
+        -Environment @{
+            HOME = $xdgHomePath
+            XDG_DATA_HOME = $xdgDataHomePath
+        }
     Test-ExitCode -Name 'PATH-003 linux: absolute XDG root exits zero' -Result $xdgResult -ExpectedExitCode 0
     Test-ResultText `
         -Name 'PATH-003 linux: absolute XDG root uses XDG_DATA_HOME' `
         -Result $xdgResult `
         -ExpectedText "$xdgDataHomePath/coding-agent-toolchain"
+
+    $outsideXdgLayout = Initialize-IsolatedScriptLayout `
+        -ManifestContent (Get-DryRunManifestContent)
+    $outsideXdgDataHome = Join-Path `
+        -Path $outsideXdgLayout.Root `
+        -ChildPath 'outside-xdg-data'
+    New-Item -ItemType Directory -Path $outsideXdgDataHome | Out-Null
+    $outsideXdgHomePath = ConvertTo-BashPath -Path $outsideXdgLayout.Home
+    $outsideXdgDataHomePath = ConvertTo-BashPath -Path $outsideXdgDataHome
+    $outsideXdgConfigPath = Get-PlatformPathArgument `
+        -Platform 'linux' `
+        -Path $outsideXdgLayout.ManifestPath
+    $outsideXdgResult = Invoke-IsolatedToolScript `
+        -Platform 'linux' `
+        -Layout $outsideXdgLayout `
+        -Arguments @('-d', '-v', '-c', $outsideXdgConfigPath) `
+        -Environment @{
+            HOME = $outsideXdgHomePath
+            XDG_DATA_HOME = $outsideXdgDataHomePath
+        }
+    Test-NonzeroExitCode `
+        -Name 'PATH-019 linux: outside XDG root fails' `
+        -Result $outsideXdgResult
+    Test-ResultText `
+        -Name 'PATH-019 linux: outside XDG root diagnostic' `
+        -Result $outsideXdgResult `
+        -ExpectedText 'XDG_DATA_HOME must point inside'
+    $outsideXdgToolRoot = Join-Path `
+        -Path $outsideXdgDataHome `
+        -ChildPath 'coding-agent-toolchain'
+    Test-CheckCondition `
+        -Name 'PATH-019 linux: outside XDG root remains untouched' `
+        -Condition (-not (Test-Path -LiteralPath $outsideXdgToolRoot)) `
+        -FailureDetail "Unexpected outside XDG tool root '$outsideXdgToolRoot'."
 }
 
 function Test-PrefixPathValidation {
@@ -3508,7 +3547,7 @@ function Initialize-LinuxMarkedToolDirectory {
         'use_unmanaged="$3"',
         'add_obsolete="$4"',
         'home_path="${runtime_path}/home"',
-        'xdg_data_home="${runtime_path}/xdg-data"',
+        'xdg_data_home="${home_path}/xdg-data"',
         'tool_directory="${xdg_data_home}/coding-agent-toolchain/tools/linux-${machine_name}/sample-tool"',
         'tool_bin_directory="${tool_directory}/bin"',
         'command_directory="${home_path}/.local/bin"',
@@ -3546,7 +3585,7 @@ function Initialize-LinuxMarkedToolDirectory {
         }
 
         $homePath = "$runtimePath/home"
-        $xdgDataHomePath = "$runtimePath/xdg-data"
+        $xdgDataHomePath = "$homePath/xdg-data"
         $commandDirectoryPath = "$homePath/.local/bin"
         $toolDirectoryPath = "$xdgDataHomePath/coding-agent-toolchain/tools/linux-$machineName/sample-tool"
 

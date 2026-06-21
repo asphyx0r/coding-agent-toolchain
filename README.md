@@ -104,7 +104,9 @@ ${XDG_DATA_HOME:-$HOME/.local/share}/coding-agent-toolchain/tools/linux-<machine
 
 `<machine>` is the value reported by `uname -m`, such as `x86_64`. If
 `XDG_DATA_HOME` is unset, empty, or relative, the script uses
-`$HOME/.local/share`.
+`$HOME/.local/share`. If `XDG_DATA_HOME` is absolute, it must resolve inside
+the current user's `$HOME`; absolute paths outside `$HOME` are rejected to
+preserve the user-scoped installation boundary.
 
 | Purpose | Default Linux location |
 | --- | --- |

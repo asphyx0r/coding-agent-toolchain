@@ -438,6 +438,64 @@ xdg_data_home() {
   fi
 }
 
+normalize_absolute_path_text() {
+  local path="$1"
+  local normalized_path=""
+  local segment
+  local -a path_segments=()
+  local -a normalized_segments=()
+
+  path="$(normalize_prefix_root "${path}")"
+  path="${path#/}"
+  IFS='/' read -r -a path_segments <<<"${path}"
+
+  for segment in "${path_segments[@]}"; do
+    case "${segment}" in
+    '' | .) ;;
+    ..)
+      if ((${#normalized_segments[@]} > 0)); then
+        unset "normalized_segments[$((${#normalized_segments[@]} - 1))]"
+      fi
+      ;;
+    *) normalized_segments+=("${segment}") ;;
+    esac
+  done
+
+  for segment in "${normalized_segments[@]}"; do
+    normalized_path+="/${segment}"
+  done
+
+  printf '%s' "${normalized_path:-/}"
+}
+
+resolve_directory_path_candidate() {
+  local base_physical
+  local candidate
+  local path="$1"
+  local suffix=""
+
+  path="$(normalize_absolute_path_text "${path}")"
+  candidate="${path}"
+  while [[ "${candidate}" != "/" && ! -e "${candidate}" ]]; do
+    suffix="/${candidate##*/}${suffix}"
+    candidate="${candidate%/*}"
+    [[ -n "${candidate}" ]] || candidate="/"
+  done
+
+  if [[ -d "${candidate}" ]]; then
+    base_physical="$(physical_directory "${candidate}")" || return 1
+    base_physical="$(normalize_absolute_path_text "${base_physical}")"
+  else
+    base_physical="$(normalize_absolute_path_text "${candidate}")"
+  fi
+
+  if [[ "${base_physical}" == "/" ]]; then
+    printf '%s' "${suffix:-/}"
+  else
+    printf '%s%s' "${base_physical}" "${suffix}"
+  fi
+}
+
 toolchain_user_root() {
   if [[ -n "${prefix_root}" ]]; then
     if [[ "${prefix_root}" == "/" ]]; then
@@ -2449,6 +2507,40 @@ validate_prefix_root() {
   return 2
 }
 
+validate_xdg_data_home() {
+  local home_physical
+  local xdg_physical
+
+  if [[ -z "${XDG_DATA_HOME:-}" || "${XDG_DATA_HOME}" != /* ]]; then
+    return 0
+  fi
+
+  if [[ -z "${HOME:-}" || ! -d "${HOME}" ]]; then
+    log_error "XDG_DATA_HOME requires a valid current user's HOME directory."
+    return 2
+  fi
+
+  home_physical="$(physical_directory "${HOME}")" || {
+    log_error "XDG_DATA_HOME requires a valid current user's HOME directory."
+    return 2
+  }
+  home_physical="$(normalize_absolute_path_text "${home_physical}")"
+  xdg_physical="$(resolve_directory_path_candidate "${XDG_DATA_HOME}")" || {
+    log_error "XDG_DATA_HOME must be a resolvable user-scoped data root."
+    return 2
+  }
+  xdg_physical="$(normalize_absolute_path_text "${xdg_physical}")"
+
+  if [[ "${xdg_physical}" == "${home_physical}" ||
+    "${xdg_physical}" == "${home_physical}/"* ]]; then
+    return 0
+  fi
+
+  log_error \
+    "XDG_DATA_HOME must point inside the current user's HOME to preserve user-scoped installation."
+  return 2
+}
+
 main() {
   while (($# > 0)); do
     case "$1" in
@@ -2506,6 +2598,7 @@ main() {
   fi
 
   validate_prefix_root || return $?
+  validate_xdg_data_home || return $?
 
   log_info "Starting Coding Agent Toolchain for Linux."
   log_info "Using configuration: ${config_path}"

@@ -237,7 +237,7 @@ external commands. The expected command arguments are part of the assertion.
 | --- | --- | --- | --- |
 | `PATH-001` | windows | No prefix. | Uses `%LOCALAPPDATA%\CodingAgentToolchain` and shared `bin` command shims. |
 | `PATH-002` | linux | No prefix with unset or relative `XDG_DATA_HOME`. | Uses `$HOME/.local/share/coding-agent-toolchain/tools/linux-<machine>`. |
-| `PATH-003` | linux | No prefix with absolute `XDG_DATA_HOME`. | Uses that data root for managed payloads. |
+| `PATH-003` | linux | No prefix with absolute `XDG_DATA_HOME` inside `HOME`. | Uses that data root for managed payloads. |
 | `PATH-004` | both | Valid absolute prefix inside user root. | Uses `<prefix>/coding-agent-toolchain` or `<prefix>\coding-agent-toolchain`. |
 | `PATH-005` | both | Valid relative prefix resolving inside user root. | Prefix is accepted after normalization. |
 | `PATH-006` | both | Prefix equal to user root. | Prefix is accepted and tool payloads stay under `coding-agent-toolchain`. |
@@ -253,7 +253,7 @@ external commands. The expected command arguments are part of the assertion.
 | `PATH-016` | both | Prefix path does not exist and must not be implicitly created by validation. | Exit nonzero with an invalid-prefix or missing-prefix-target diagnostic before any state change. |
 | `PATH-017` | both | Prefix path cannot be created, resolved, or accessed because of permissions, read-only media, reserved names, or missing parent directories. | Exit nonzero with an invalid-prefix diagnostic before any state change. |
 | `PATH-018` | both | Prefix path is a symlink, junction, or equivalent path that appears under the user root but resolves outside it. | Exit nonzero and no outside-user-root target is created, modified, or removed. |
-| `PATH-019` | both | System directory is supplied through prefix, environment-derived default root, command publication path, or installer output path. | Exit nonzero and no system directory content is created, modified, or removed. |
+| `PATH-019` | both | System directory or absolute `XDG_DATA_HOME` outside `HOME` is supplied through prefix, environment-derived default root, command publication path, or installer output path. | Exit nonzero and no outside-user-root content is created, modified, or removed. |
 
 ### Removal Safety Tests
 
@@ -372,8 +372,9 @@ combination accounting.
 - Run tests with temporary user roots and temporary `PATH` values.
 - On Windows, redirect `LOCALAPPDATA`, user `Path`, package-manager commands,
   and any test prefix to isolated temporary locations where practical.
-- On Linux, redirect `HOME`, `XDG_DATA_HOME`, `.profile`, `PATH`, and any test
-  prefix to isolated temporary locations.
+- On Linux, redirect `HOME`, `.profile`, `PATH`, and any test prefix to
+  isolated temporary locations. Keep `XDG_DATA_HOME` under `HOME` except when
+  a test intentionally validates the outside-root refusal path.
 - Provide fake commands for package managers and external tools, including
   `python`, `pip`, `npm`, `pwsh`, `brew`, `winget`, `choco`, `curl`, `gh`,
   `tar`, and `make`, according to the branch under test.
