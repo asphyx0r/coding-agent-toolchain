@@ -98,3 +98,7 @@ jobs:
       - name: Run codespell
         shell: pwsh
         run: codespell .
+
+      - name: Run offline test plan
+        shell: pwsh
+        run: ./tests/test-plan.ps1
