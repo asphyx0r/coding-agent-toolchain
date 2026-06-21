@@ -307,6 +307,11 @@ if ($errors) {
 Invoke-ScriptAnalyzer -Path .\scripts\install-tools.ps1
 ```
 
+## Security
+
+See [SECURITY.md](SECURITY.md) for supported versions and vulnerability
+reporting.
+
 ## Versioning
 
 Scripts report `git describe --tags --long --always --dirty` when they run
