@@ -300,6 +300,7 @@ When scripts change, also run the script checks:
 
 ```powershell
 bash -n scripts/install-tools.sh
+shfmt -d -i 2 scripts/install-tools.sh
 shellcheck scripts/install-tools.sh
 
 $tokens = $null

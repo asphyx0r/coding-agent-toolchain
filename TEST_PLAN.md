@@ -125,6 +125,7 @@ not overlap.
 | `STATIC-002` | YAML | Run repository YAML lint against `.yamllint`, `.markdownlint-cli2.yaml`, `config/tools.yaml`, and `.github/workflows/validation.yml`. | YAML syntax and style pass. |
 | `STATIC-003` | Bash | Run `bash -n scripts/install-tools.sh`. | Bash syntax passes. |
 | `STATIC-004` | Bash | Run `shellcheck scripts/install-tools.sh`. | No ShellCheck findings. |
+| `STATIC-007` | Bash | Run `shfmt -d -i 2 scripts/install-tools.sh` when available. | No formatting diff. |
 | `STATIC-005` | PowerShell | Parse `scripts/install-tools.ps1` with the PowerShell parser. | No parse errors. |
 | `STATIC-006` | PowerShell | Run `Invoke-ScriptAnalyzer` when available. | No analyzer findings. |
 
@@ -428,6 +429,7 @@ When shell scripts change, also run:
 
 ```powershell
 bash -n scripts/install-tools.sh
+shfmt -d -i 2 scripts/install-tools.sh
 shellcheck scripts/install-tools.sh
 ```
 

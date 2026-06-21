@@ -41,6 +41,7 @@ jobs:
           choco install shellcheck --yes --no-progress
           $goBin = Join-Path (go env GOPATH) "bin"
           Add-Content -Path $env:GITHUB_PATH -Value $goBin
+          go install mvdan.cc/sh/v3/cmd/shfmt@latest
           go install github.com/rhysd/actionlint/cmd/actionlint@latest
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module `
@@ -65,6 +66,10 @@ jobs:
       - name: Check Bash syntax
         shell: pwsh
         run: bash -n scripts/install-tools.sh
+
+      - name: Run shfmt
+        shell: pwsh
+        run: shfmt -d -i 2 scripts/install-tools.sh
 
       - name: Run ShellCheck
         shell: pwsh

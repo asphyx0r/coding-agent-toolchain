@@ -2558,7 +2558,7 @@ validate_xdg_data_home() {
   }
   xdg_physical="$(normalize_absolute_path_text "${xdg_physical}")"
 
-  if [[ "${xdg_physical}" == "${home_physical}" ||
+  if [[ "${xdg_physical}" == "${home_physical}" || \
     "${xdg_physical}" == "${home_physical}/"* ]]; then
     return 0
   fi
