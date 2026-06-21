@@ -284,6 +284,11 @@ markdownlint-cli2 "**/*.md"
 yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml
 ```
 
+The GitHub Actions validation workflow uses major-version action tags and
+installs current validation tools from npm, pip, Chocolatey, and PowerShell
+Gallery. Treat this workflow as a moving validation gate, not as a
+reproducible pinned release build.
+
 The complete repository test plan is documented in
 [`TEST_PLAN.md`](TEST_PLAN.md). It defines the required CLI, manifest, installer,
 path, removal, safety-boundary, and release-readiness coverage.
