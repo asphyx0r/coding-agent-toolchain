@@ -3860,6 +3860,7 @@ function Invoke-YamlFallback {
         Get-RepositoryPath -RelativePath '.yamllint'
         Get-RepositoryPath -RelativePath '.markdownlint-cli2.yaml'
         Get-RepositoryPath -RelativePath 'config/tools.yaml'
+        Get-RepositoryPath -RelativePath '.github/workflows/validation.yml'
     )
     $hasError = $false
     foreach ($yamlFile in $yamlFiles) {
@@ -4254,7 +4255,12 @@ function Invoke-StaticCheck {
     Invoke-ExternalCheck `
         -Name 'STATIC-002 YAML lint' `
         -Command 'yamllint' `
-        -Arguments @('.yamllint', '.markdownlint-cli2.yaml', 'config/tools.yaml') `
+        -Arguments @(
+            '.yamllint'
+            '.markdownlint-cli2.yaml'
+            'config/tools.yaml'
+            '.github/workflows/validation.yml'
+        ) `
         -Fallback { Invoke-YamlFallback }
     Invoke-ExternalCheck `
         -Name 'STATIC-003 Bash syntax' `

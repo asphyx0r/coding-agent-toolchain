@@ -122,7 +122,7 @@ not overlap.
 | ID | Scope | Scenario | Expected result |
 | --- | --- | --- | --- |
 | `STATIC-001` | Markdown | Run repository Markdown lint. | All Markdown files pass. |
-| `STATIC-002` | YAML | Run repository YAML lint against `.yamllint`, `.markdownlint-cli2.yaml`, and `config/tools.yaml`. | YAML syntax and style pass. |
+| `STATIC-002` | YAML | Run repository YAML lint against `.yamllint`, `.markdownlint-cli2.yaml`, `config/tools.yaml`, and `.github/workflows/validation.yml`. | YAML syntax and style pass. |
 | `STATIC-003` | Bash | Run `bash -n scripts/install-tools.sh`. | Bash syntax passes. |
 | `STATIC-004` | Bash | Run `shellcheck scripts/install-tools.sh`. | No ShellCheck findings. |
 | `STATIC-005` | PowerShell | Parse `scripts/install-tools.ps1` with the PowerShell parser. | No parse errors. |
@@ -419,7 +419,7 @@ changes.
 
 ```powershell
 markdownlint-cli2 "**/*.md"
-yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml
+yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml .github/workflows/validation.yml
 ```
 
 When shell scripts change, also run:

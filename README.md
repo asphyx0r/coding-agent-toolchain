@@ -281,7 +281,7 @@ committing:
 
 ```powershell
 markdownlint-cli2 "**/*.md"
-yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml
+yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml .github/workflows/validation.yml
 ```
 
 The GitHub Actions validation workflow uses major-version action tags and
