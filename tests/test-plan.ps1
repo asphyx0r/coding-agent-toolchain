@@ -4294,16 +4294,32 @@ function Invoke-StaticCheck {
 }
 
 function Invoke-TestPlanCheck {
-    Invoke-StaticCheck
-    Test-CombinationModel
-    Test-InventoryTemplate
-    Test-ReferenceIntegrity
-    Test-CanonicalManifestCoverage
-    Test-DocumentationConsistency
-    Test-DirectCliParsing
-    Test-DirectManifestParsing
-    Test-DirectDispatchAndInstall
-    Test-DirectRemoval
+    $sections = [ordered]@{
+        'Static and structural checks' = @(
+            { Invoke-StaticCheck }
+            { Test-CombinationModel }
+            { Test-InventoryTemplate }
+            { Test-ReferenceIntegrity }
+            { Test-CanonicalManifestCoverage }
+            { Test-DocumentationConsistency }
+        )
+        'Script parser checks' = @(
+            { Test-DirectCliParsing }
+            { Test-DirectManifestParsing }
+        )
+        'Installer behavior checks' = @(
+            { Test-DirectDispatchAndInstall }
+        )
+        'Removal behavior checks' = @(
+            { Test-DirectRemoval }
+        )
+    }
+
+    foreach ($section in $sections.GetEnumerator()) {
+        foreach ($check in $section.Value) {
+            & $check
+        }
+    }
 
     Write-Output ''
     Write-Output "Checks run: $Script:CheckCount"
