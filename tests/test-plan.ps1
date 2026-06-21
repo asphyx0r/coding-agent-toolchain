@@ -4,7 +4,7 @@ Runs the offline repository checks that are mapped to TEST_PLAN.md.
 
 .DESCRIPTION
 This script keeps routine validation isolated from real tool installation. It
-checks static quality gates, validates the test-plan inventory structure, and
+checks static quality gates, validates the structural matrix contract, and
 cross-checks the canonical manifest against the documented coverage table.
 #>
 [CmdletBinding()]
@@ -4064,9 +4064,16 @@ function Test-CombinationModel {
         $section -match 'invalid:<reason>' -and
         $section -match 'not_applicable:<reason>'
     Test-CheckCondition `
-        -Name 'MATRIX-003 coverage statuses documented' `
+        -Name 'MATRIX-003 accepted coverage statuses documented' `
         -Condition $coverageContractPresent `
         -FailureDetail 'Coverage contract does not list every accepted status form.'
+
+    $cartesianLimitPresent = $testPlanText -match
+        'does not generate or validate a complete\s+cartesian matrix inventory'
+    Test-CheckCondition `
+        -Name 'MATRIX-005 cartesian coverage limit documented' `
+        -Condition $cartesianLimitPresent `
+        -FailureDetail 'TEST_PLAN.md claims or omits the current cartesian coverage boundary.'
 }
 
 function Test-InventoryTemplate {
@@ -4094,7 +4101,7 @@ function Test-InventoryTemplate {
         -Condition ([regex]::IsMatch($section, $headerPattern)) `
         -FailureDetail 'Combination inventory template does not expose the required columns.'
     Test-CheckCondition `
-        -Name 'MATRIX-003 example coverage classification' `
+        -Name 'MATRIX-003 example coverage status' `
         -Condition ($section -match '\| `MATRIX-EXAMPLE` .* \| `direct_test` \|') `
         -FailureDetail 'Inventory example does not use an accepted Coverage value.'
 }

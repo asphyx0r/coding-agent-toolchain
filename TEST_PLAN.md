@@ -37,13 +37,17 @@ class, marked invalid by contract, or marked not applicable with a reason.
 
 ## Completion Criteria
 
-The test plan is complete only when all criteria below are true:
+The implemented offline runner is complete for the structural coverage contract
+when all criteria below are true. It does not generate or validate a complete
+cartesian matrix inventory; that fuller inventory remains future work until a
+row file or generator exists.
 
-- Every value in the combination model has at least one direct test.
-- Every cartesian product row that is not directly executed has a traceable
-  classification: `equivalent`, `invalid`, or `not_applicable`.
-- Every `equivalent` row references the direct test that proves the same branch
-  or contract.
+- Every expected axis in the combination model is documented with values.
+- The inventory template exposes every required column.
+- Accepted `Coverage` status forms are documented, and the example row uses an
+  accepted status.
+- Every referenced test ID resolves to a documented direct test or structural
+  check.
 - Every platform-specific behavior is tested on its owning platform or marked as
   platform-specific and not applicable on the other platform.
 - Every destructive scenario uses an isolated temporary home, profile, or prefix
@@ -53,10 +57,10 @@ The test plan is complete only when all criteria below are true:
 
 ## Combination Model
 
-Build the full combination inventory from the axes in this section. A row is
-valid only when all axes have a value and the `Coverage` field is one of
-`direct_test`, `equivalent:<test-id>`, `invalid:<reason>`, or
-`not_applicable:<reason>`.
+The axes in this section define the target model for current direct tests and a
+future full matrix inventory. A future row is valid only when all axes have a
+value and the `Coverage` field is one of `direct_test`,
+`equivalent:<test-id>`, `invalid:<reason>`, or `not_applicable:<reason>`.
 
 | Axis | Values | Notes |
 | --- | --- | --- |
@@ -82,9 +86,10 @@ valid only when all axes have a value and the `Coverage` field is one of
 
 ## Combination Inventory Template
 
-Use this template for the generated or manually maintained inventory. The
-inventory may live in a test fixture file later, but every row must use these
-columns.
+Use this template for any generated or manually maintained inventory. The
+current offline runner validates the template and example only; it does not
+require a materialized row for every cartesian combination. A future inventory
+may live in a test fixture file later, but every row must use these columns.
 
 | ID | Platform | Mode | Options | Config | Prefix | Tool State | Installer | File State | Expected | Coverage |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -105,12 +110,12 @@ not overlap.
 
 | ID | Scope | Scenario | Expected result |
 | --- | --- | --- | --- |
-| `MATRIX-001` | Axes | Enumerate every value from the combination model. | No model value is missing from the inventory generator or manual inventory. |
-| `MATRIX-002` | Cartesian rows | Generate all applicable cartesian rows from the axes. | Every generated row has a stable `ID` and all required columns. |
-| `MATRIX-003` | Coverage status | Validate the `Coverage` field for every row. | No row has empty, unknown, or placeholder coverage. |
-| `MATRIX-004` | Equivalence links | Validate every `equivalent:<test-id>` row. | The referenced direct test exists and covers the same branch or contract. |
-| `MATRIX-005` | Exclusions | Validate every `invalid` or `not_applicable` row. | The reason is explicit and tied to platform, mode, or manifest contract. |
-| `MATRIX-006` | Canonical tools | Cross-check every canonical tool against the generated rows. | Each tool appears for each declared platform installer and expected status path. |
+| `MATRIX-001` | Axes | Verify every expected axis from the combination model. | No expected axis is missing or empty. |
+| `MATRIX-002` | Inventory template | Validate the inventory template columns. | The template exposes every required column. |
+| `MATRIX-003` | Coverage status | Validate accepted `Coverage` status forms and the example row. | The contract lists every accepted status form, and the example uses one. |
+| `MATRIX-004` | References | Validate every referenced test ID. | Each reference resolves to a documented direct test or structural check. |
+| `MATRIX-005` | Coverage boundary | Document that full cartesian row validation is not currently claimed. | The test plan states that complete cartesian matrix validation is future work. |
+| `MATRIX-006` | Canonical tools | Cross-check every canonical tool against documented tool coverage rows. | Each tool appears for each declared platform installer and expected status path. |
 
 ### Static Quality Tests
 
