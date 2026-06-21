@@ -3009,7 +3009,7 @@ rule for framework code.
 ### Naming
 
 - Use idiomatic Rust naming consistently: `snake_case` for functions, methods, variables, and modules; `UpperCamelCase`
-  for types, traits, and enum variants; and `SCREAMING_SNAKE_CASE` for constants and statics.
+  for types, traits, and enum variants; and `SCREAMING_SNAKE_CASE` for constants and `static` items.
 - Follow Rust API naming conventions for conversions, getters, iterator methods, and Cargo feature names.
 - Choose names that make call sites predictable and do not encode implementation details that callers should not depend
   on.
