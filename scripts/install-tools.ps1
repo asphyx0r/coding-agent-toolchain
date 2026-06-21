@@ -44,6 +44,22 @@ $RemoveEnabled = [bool]$Remove
 $CheckPathEnabled = [bool]$CheckPath
 $HelpEnabled = [bool]$Help
 
+function Test-AdministratorIdentity {
+    if ($env:CAT_TEST_FORCE_ADMINISTRATOR -eq '1') {
+        return $true
+    }
+
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Assert-PublicModeAllowed {
+    if (Test-AdministratorIdentity) {
+        throw 'Coding Agent Toolchain cannot run as Administrator.'
+    }
+}
+
 function Show-Help {
     Write-Output "Coding Agent Toolchain $ToolVersion"
     Write-Output ''
@@ -104,6 +120,8 @@ while ($argumentIndex -lt $RemainingArguments.Count) {
 
     $argumentIndex++
 }
+
+Assert-PublicModeAllowed
 
 if ($HelpEnabled) {
     Show-Help
@@ -1902,12 +1920,6 @@ function Get-PathVerificationStatus {
 }
 
 function Assert-RemoveModeAllowed {
-    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
-    if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        throw '--remove cannot run as Administrator.'
-    }
-
     $profileRoot = [Environment]::GetFolderPath('UserProfile')
     if ([string]::IsNullOrWhiteSpace($profileRoot) -or -not (Test-Path -LiteralPath $profileRoot -PathType Container)) {
         throw '--remove requires a valid current user profile directory.'

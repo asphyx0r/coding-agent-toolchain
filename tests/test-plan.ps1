@@ -936,6 +936,51 @@ function Test-CliCheckPathAndInvalidOption {
     Test-ResultText -Name "CLI-017 ${Platform}: invalid before help diagnostic" -Result $invalidBeforeHelpResult -ExpectedText 'Unknown option'
 }
 
+function Test-ElevatedPublicModeRejection {
+    $modeCases = @(
+        [pscustomobject]@{ Name = 'short help'; Arguments = @('-h') },
+        [pscustomobject]@{ Name = 'long help'; Arguments = @('--help') },
+        [pscustomobject]@{ Name = 'default install'; Arguments = @() },
+        [pscustomobject]@{ Name = 'dry-run'; Arguments = @('--dry-run') },
+        [pscustomobject]@{ Name = 'check-path'; Arguments = @('--check-path') },
+        [pscustomobject]@{ Name = 'remove'; Arguments = @('--remove') }
+    )
+
+    foreach ($platform in @('windows', 'linux')) {
+        $testId = if ($platform -eq 'windows') { 'SAFETY-002' } else { 'SAFETY-001' }
+        $identityText = if ($platform -eq 'windows') { 'Administrator' } else { 'root' }
+
+        foreach ($modeCase in $modeCases) {
+            $layout = Initialize-IsolatedScriptLayout -ManifestContent (Get-DryRunManifestContent)
+            $environment = if ($platform -eq 'windows') {
+                @{ CAT_TEST_FORCE_ADMINISTRATOR = '1' }
+            } else {
+                @{ CAT_TEST_FORCE_ROOT = '1' }
+            }
+
+            $result = Invoke-IsolatedToolScript `
+                -Platform $platform `
+                -Layout $layout `
+                -Arguments $modeCase.Arguments `
+                -Environment $environment
+
+            Test-NonzeroExitCode -Name "$testId ${platform}: $($modeCase.Name) rejects elevated identity" -Result $result
+            Test-ResultText `
+                -Name "$testId ${platform}: $($modeCase.Name) reports elevated identity" `
+                -Result $result `
+                -ExpectedText $identityText
+            Test-ResultTextAbsent `
+                -Name "$testId ${platform}: $($modeCase.Name) does not start normal flow" `
+                -Result $result `
+                -UnexpectedText 'Starting Coding Agent Toolchain'
+            Test-ResultTextAbsent `
+                -Name "$testId ${platform}: $($modeCase.Name) does not read manifest" `
+                -Result $result `
+                -UnexpectedText 'Loaded '
+        }
+    }
+}
+
 function Test-CliConfigAndPrefixFailure {
     param(
         [Parameter(Mandatory = $true)]
@@ -999,6 +1044,8 @@ function Test-DirectCliParsing {
         Test-CliCheckPathAndInvalidOption -Platform $platform
         Test-CliConfigAndPrefixFailure -Platform $platform
     }
+
+    Test-ElevatedPublicModeRejection
 }
 
 function Invoke-ManifestCase {

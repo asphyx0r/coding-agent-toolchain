@@ -10,6 +10,7 @@ verbose=0
 dry_run=0
 check_path=0
 remove_mode=0
+help_requested=0
 prefix_root=""
 
 tool_ids=()
@@ -61,6 +62,21 @@ log_verbose() {
 
 log_error() {
   printf '[ERROR] %s\n' "$*" >&2
+}
+
+is_root_identity() {
+  if [[ "${CAT_TEST_FORCE_ROOT:-}" == "1" ]]; then
+    return 0
+  fi
+
+  [[ "$(id -u)" == "0" ]]
+}
+
+ensure_public_mode_allowed() {
+  if is_root_identity; then
+    log_error "Coding Agent Toolchain cannot run as root."
+    return 2
+  fi
 }
 
 trim_manifest_value() {
@@ -2087,11 +2103,6 @@ path_verification_status() {
 }
 
 ensure_remove_mode_allowed() {
-  if [[ "$(id -u)" == "0" ]]; then
-    log_error "--remove cannot run as root."
-    return 2
-  fi
-
   if [[ -z "${HOME:-}" || ! -d "${HOME}" ]]; then
     log_error "--remove requires a valid current user's HOME directory."
     return 2
@@ -2435,8 +2446,8 @@ main() {
       shift 2
       ;;
     -h | --help)
-      usage
-      return 0
+      help_requested=1
+      shift
       ;;
     *)
       log_error "Unknown option: $1"
@@ -2445,6 +2456,13 @@ main() {
       ;;
     esac
   done
+
+  ensure_public_mode_allowed || return $?
+
+  if ((help_requested)); then
+    usage
+    return 0
+  fi
 
   validate_prefix_root || return $?
 
