@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.4.3
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| 7e58b96 | ci: align validation workflow gate | asphyx |
+
 ## v1.4.2
 
 | References | Description | Author(s) |
