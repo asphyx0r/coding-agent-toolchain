@@ -1734,6 +1734,7 @@ function Initialize-WindowsDispatchFixture {
     Initialize-ZipArchiveFile -Path $zipArchivePath -EntryName $toolCommandName -SourcePath $zipSourcePath
     $unsafeZipArchivePath = Join-Path -Path $sourceDirectory -ChildPath 'unsafe.zip'
     Initialize-ZipArchiveFile -Path $unsafeZipArchivePath -EntryName "../$toolCommandName" -SourcePath $zipSourcePath
+    $missingDirectBinaryPath = Join-Path -Path $sourceDirectory -ChildPath 'missing-direct.cmd'
 
     $portableArchivePath = Join-Path -Path $sourceDirectory -ChildPath 'portable.7z'
     Set-Content -LiteralPath $portableArchivePath -Value 'synthetic portable archive' -Encoding ASCII
@@ -1830,6 +1831,12 @@ public static class $className
         $directInstallerUrl = ConvertTo-FileUriString -Path $installerSourcePath
     }
 
+    $windowsPathEntries = @($fakeBinDirectory, $installDirectory)
+    if (-not [string]::IsNullOrWhiteSpace($env:SystemRoot)) {
+        $windowsPathEntries += Join-Path -Path $env:SystemRoot -ChildPath 'System32'
+        $windowsPathEntries += $env:SystemRoot
+    }
+
     return [pscustomobject]@{
         PrefixPath = $prefixPath
         FakeBinDirectory = $fakeBinDirectory
@@ -1843,9 +1850,10 @@ public static class $className
         PortableArchiveUrl = ConvertTo-FileUriString -Path $portableArchivePath
         ZipArchiveUrl = ConvertTo-FileUriString -Path $zipArchivePath
         UnsafeZipArchiveUrl = ConvertTo-FileUriString -Path $unsafeZipArchivePath
+        MissingDirectBinaryUrl = ([uri]$missingDirectBinaryPath).AbsoluteUri
         DirectInstallerUrl = $directInstallerUrl
         Environment = @{
-            PATH = "$fakeBinDirectory$([IO.Path]::PathSeparator)$installDirectory$([IO.Path]::PathSeparator)$env:Path"
+            PATH = ($windowsPathEntries -join [IO.Path]::PathSeparator)
             CAT_TEST_WINDOWS_FAKE_BIN = $fakeBinDirectory
             CAT_TEST_WINDOWS_PORTABLE_SOURCE = $portableSourcePath
         }
@@ -3111,6 +3119,33 @@ function Test-WindowsArchiveAndDirectInstallerFlow {
         -Name 'ARCHIVE-014 windows: unsafe zip archive writes no marker' `
         -Condition (-not (Test-Path -LiteralPath $unsafeZipFixture.InstallMarkerPath -PathType Leaf)) `
         -FailureDetail 'Marker was written after unsafe archive extraction failed.'
+
+    $downloadFailureLayout = Initialize-IsolatedScriptLayout -ManifestContent (Get-UnavailableManifestContent)
+    $downloadFailureFixture = Initialize-WindowsDispatchFixture
+    $downloadFailureResult = Invoke-WindowsDispatchFixture `
+        -Layout $downloadFailureLayout `
+        -Fixture $downloadFailureFixture `
+        -ManifestContent (Get-WindowsDirectBinaryManifestContent -Url $downloadFailureFixture.MissingDirectBinaryUrl)
+
+    Test-NonzeroExitCode `
+        -Name 'INSTALL-004 windows: failed direct_binary download exits nonzero' `
+        -Result $downloadFailureResult
+    Test-ResultText `
+        -Name 'INSTALL-004 windows: failed installer status' `
+        -Result $downloadFailureResult `
+        -ExpectedText 'Failed'
+    Test-ResultText `
+        -Name 'ARCHIVE-009 windows: download failure reports install failure' `
+        -Result $downloadFailureResult `
+        -ExpectedText 'Installation failed'
+    Test-CheckCondition `
+        -Name 'ARCHIVE-009 windows: failed download publishes no target' `
+        -Condition (-not (Test-Path -LiteralPath $downloadFailureFixture.PortableInstalledToolPath -PathType Leaf)) `
+        -FailureDetail 'Final binary target was written after a failed download.'
+    Test-CheckCondition `
+        -Name 'ARCHIVE-009 windows: failed download writes no marker' `
+        -Condition (-not (Test-Path -LiteralPath $downloadFailureFixture.InstallMarkerPath -PathType Leaf)) `
+        -FailureDetail 'Marker was written after a failed download.'
 
     $installerLayout = Initialize-IsolatedScriptLayout -ManifestContent (Get-UnavailableManifestContent)
     $installerFixture = Initialize-WindowsDispatchFixture -IncludeDirectInstaller

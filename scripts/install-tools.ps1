@@ -1618,9 +1618,21 @@ function Install-DirectBinaryTool {
     Confirm-Directory -Path $binDir
 
     if (-not $Installer.Contains('archive_kind')) {
-        Write-TraceDetail "Downloading plain binary file for '$($Tool['Id'])'."
-        Invoke-WebRequest -Uri $url -OutFile $targetPath -UseBasicParsing
-        Publish-ToolCommand -Tool $Tool -Installer $Installer -TargetPath $targetPath
+        $tempFileName = "$fileName.$([IO.Path]::GetRandomFileName()).tmp"
+        $tempTargetPath = Join-Path -Path $binDir -ChildPath $tempFileName
+        try {
+            Write-TraceDetail "Downloading plain binary file for '$($Tool['Id'])' to '$tempTargetPath'."
+            Invoke-WebRequest -Uri $url -OutFile $tempTargetPath -UseBasicParsing -ErrorAction Stop
+            Write-TraceDetail "Publishing staged binary for '$($Tool['Id'])' to '$targetPath'."
+            Move-Item -LiteralPath $tempTargetPath -Destination $targetPath -Force -ErrorAction Stop
+            Publish-ToolCommand -Tool $Tool -Installer $Installer -TargetPath $targetPath
+        } finally {
+            if (Test-Path -LiteralPath $tempTargetPath -PathType Leaf) {
+                Write-TraceDetail "Removing temporary binary '$tempTargetPath'."
+                Remove-Item -LiteralPath $tempTargetPath -Force
+            }
+        }
+
         return
     }
 
