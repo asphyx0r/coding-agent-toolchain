@@ -1828,6 +1828,7 @@ function Initialize-WindowsDispatchFixture {
     ) -Encoding ASCII
 
     $directInstallerUrl = ''
+    $directInstallerWarning = ''
     if ($IncludeDirectInstaller) {
         $installerSourcePath = Join-Path -Path $sourceDirectory -ChildPath 'installer-source.exe'
         $className = 'CatTestInstaller' + [guid]::NewGuid().ToString('N')
@@ -1870,9 +1871,8 @@ public static class $className
                 -OutputType ConsoleApplication
             $directInstallerUrl = ConvertTo-FileUriString -Path $installerSourcePath
         } catch {
-            $warning = 'DISPATCH-012 windows skipped because the direct installer fixture could not be compiled: ' +
+            $directInstallerWarning = 'DISPATCH-012 windows skipped because the direct installer fixture could not be compiled: ' +
                 $_.Exception.Message
-            Register-CheckWarning $warning
         }
     }
 
@@ -1897,6 +1897,7 @@ public static class $className
         UnsafeZipArchiveUrl = ConvertTo-FileUriString -Path $unsafeZipArchivePath
         MissingDirectBinaryUrl = ([uri]$missingDirectBinaryPath).AbsoluteUri
         DirectInstallerUrl = $directInstallerUrl
+        DirectInstallerWarning = $directInstallerWarning
         Environment = @{
             PATH = ($windowsPathEntries -join [IO.Path]::PathSeparator)
             CAT_TEST_WINDOWS_FAKE_BIN = $fakeBinDirectory
@@ -2403,6 +2404,24 @@ function Initialize-LinuxDirectBinaryFixture {
         '  chmod 755 "${venv_path}/bin/python"',
         '  exit 0',
         'fi',
+        'old_ifs="${IFS}"',
+        "IFS=':'",
+        'read -r -a path_entries <<<"${PATH}"',
+        'IFS="${old_ifs}"',
+        'fake_bin="${CAT_TEST_FAKE_BIN:-}"',
+        'fake_bin="${fake_bin%/}"',
+        'for path_entry in "${path_entries[@]}"; do',
+        '  path_entry="${path_entry%/}"',
+        '  if [[ -z "${path_entry}" || "${path_entry}" == "${fake_bin}" ]]; then',
+        '    continue',
+        '  fi',
+        '  for command_name in python3 python3.exe python python.exe; do',
+        '    python_candidate="${path_entry}/${command_name}"',
+        '    if [[ -x "${python_candidate}" ]]; then',
+        '      exec "${python_candidate}" "$@"',
+        '    fi',
+        '  done',
+        'done',
         'for python_candidate in /usr/bin/python3 /usr/local/bin/python3 /usr/bin/python /usr/local/bin/python; do',
         '  if [[ -x "${python_candidate}" ]]; then',
         '    exec "${python_candidate}" "$@"',
@@ -3177,6 +3196,10 @@ function Test-WindowsArchiveAndDirectInstallerFlow {
 
     $installerLayout = Initialize-IsolatedScriptLayout -ManifestContent (Get-UnavailableManifestContent)
     $installerFixture = Initialize-WindowsDispatchFixture -IncludeDirectInstaller
+    if (-not [string]::IsNullOrWhiteSpace($installerFixture.DirectInstallerWarning)) {
+        Register-CheckWarning $installerFixture.DirectInstallerWarning
+    }
+
     if ([string]::IsNullOrWhiteSpace($installerFixture.DirectInstallerUrl)) {
         Register-CheckWarning 'DISPATCH-012 windows skipped because the direct installer fixture is unavailable.'
         return
