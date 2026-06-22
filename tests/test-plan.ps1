@@ -1600,6 +1600,46 @@ tools:
 "@
 }
 
+function Get-WindowsDirectBinaryManifestContent {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Url,
+
+        [string]$ArchiveKind = '',
+
+        [string]$ArchivePath = ''
+    )
+
+    $manifest = @"
+schema_version: 1
+tools:
+  - id: cat-test-tool
+    executable: cat-test-tool.cmd
+    version_args:
+      - --version
+    installers:
+      windows:
+        kind: direct_binary
+        url: $Url
+        file_name: cat-test-tool.cmd
+"@
+    $manifest += "`n"
+    if (-not [string]::IsNullOrWhiteSpace($ArchiveKind)) {
+        $manifest += "        archive_kind: $ArchiveKind`n"
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($ArchivePath)) {
+        $manifest += "        archive_path: $ArchivePath`n"
+    }
+
+    $manifest += @"
+      linux:
+        kind: unavailable
+"@
+
+    return $manifest
+}
+
 function Get-WindowsDirectInstallerManifestContent {
     param(
         [Parameter(Mandatory = $true)]
@@ -1638,6 +1678,36 @@ function Write-WindowsCommandFile {
     ) -Encoding ASCII
 }
 
+function Initialize-ZipArchiveFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$EntryName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$SourcePath
+    )
+
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::Open($Path, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        $entry = $archive.CreateEntry($EntryName)
+        $entryStream = $entry.Open()
+        $sourceStream = [IO.File]::OpenRead($SourcePath)
+        try {
+            $sourceStream.CopyTo($entryStream)
+        } finally {
+            $sourceStream.Dispose()
+            $entryStream.Dispose()
+        }
+    } finally {
+        $archive.Dispose()
+    }
+}
+
 function Initialize-WindowsDispatchFixture {
     param(
         [switch]$IncludeDirectInstaller
@@ -1657,6 +1727,13 @@ function Initialize-WindowsDispatchFixture {
     $portableRootPath = Join-Path -Path $installDirectory -ChildPath 'portable-root.txt'
     $portableSourcePath = Join-Path -Path $sourceDirectory -ChildPath $toolCommandName
     Write-WindowsCommandFile -Path $portableSourcePath -VersionText 'portable-version'
+
+    $zipSourcePath = Join-Path -Path $sourceDirectory -ChildPath 'zip-tool.cmd'
+    Write-WindowsCommandFile -Path $zipSourcePath -VersionText 'zip-version'
+    $zipArchivePath = Join-Path -Path $sourceDirectory -ChildPath 'direct.zip'
+    Initialize-ZipArchiveFile -Path $zipArchivePath -EntryName $toolCommandName -SourcePath $zipSourcePath
+    $unsafeZipArchivePath = Join-Path -Path $sourceDirectory -ChildPath 'unsafe.zip'
+    Initialize-ZipArchiveFile -Path $unsafeZipArchivePath -EntryName "../$toolCommandName" -SourcePath $zipSourcePath
 
     $portableArchivePath = Join-Path -Path $sourceDirectory -ChildPath 'portable.7z'
     Set-Content -LiteralPath $portableArchivePath -Value 'synthetic portable archive' -Encoding ASCII
@@ -1683,6 +1760,16 @@ function Initialize-WindowsDispatchFixture {
 
     Set-Content -LiteralPath (Join-Path -Path $fakeBinDirectory -ChildPath 'tar.cmd') -Value @(
         '@echo off'
+        'if /I "%~1"=="-tf" ('
+        '  echo bin/cat-test-tool.cmd'
+        '  echo portable-root.txt'
+        '  exit /b 0'
+        ')'
+        'if /I "%~1"=="-tvf" ('
+        '  echo -rw-r--r--  0 0      0           0 Jan 01 00:00 bin/cat-test-tool.cmd'
+        '  echo -rw-r--r--  0 0      0           0 Jan 01 00:00 portable-root.txt'
+        '  exit /b 0'
+        ')'
         'set "destination="'
         ':next'
         'if "%~1"=="" goto done'
@@ -1754,6 +1841,8 @@ public static class $className
         PortableRootPath = $portableRootPath
         InstallMarkerPath = Join-Path -Path $installDirectory -ChildPath '.coding-agent-toolchain'
         PortableArchiveUrl = ConvertTo-FileUriString -Path $portableArchivePath
+        ZipArchiveUrl = ConvertTo-FileUriString -Path $zipArchivePath
+        UnsafeZipArchiveUrl = ConvertTo-FileUriString -Path $unsafeZipArchivePath
         DirectInstallerUrl = $directInstallerUrl
         Environment = @{
             PATH = "$fakeBinDirectory$([IO.Path]::PathSeparator)$installDirectory$([IO.Path]::PathSeparator)$env:Path"
@@ -2976,6 +3065,52 @@ function Test-WindowsArchiveAndDirectInstallerFlow {
         -Name 'DISPATCH-011 windows: portable_archive marker exists' `
         -Condition (Test-Path -LiteralPath $portableFixture.InstallMarkerPath -PathType Leaf) `
         -FailureDetail 'Portable archive marker was not written.'
+
+    $zipLayout = Initialize-IsolatedScriptLayout -ManifestContent (Get-UnavailableManifestContent)
+    $zipFixture = Initialize-WindowsDispatchFixture
+    $zipResult = Invoke-WindowsDispatchFixture `
+        -Layout $zipLayout `
+        -Fixture $zipFixture `
+        -ManifestContent (Get-WindowsDirectBinaryManifestContent -Url $zipFixture.ZipArchiveUrl -ArchiveKind 'zip')
+
+    Test-ExitCode -Name 'ARCHIVE-013 windows: zip archive exits zero' -Result $zipResult -ExpectedExitCode 0
+    Test-ResultText `
+        -Name 'ARCHIVE-013 windows: zip archive branch is used' `
+        -Result $zipResult `
+        -ExpectedText 'Extracting zip archive'
+    Test-ResultText `
+        -Name 'ARCHIVE-013 windows: zip archive reports version' `
+        -Result $zipResult `
+        -ExpectedText 'zip-version'
+    Test-CheckCondition `
+        -Name 'ARCHIVE-013 windows: zip archive command exists' `
+        -Condition (Test-Path -LiteralPath $zipFixture.PortableInstalledToolPath -PathType Leaf) `
+        -FailureDetail 'Zip archive command was not installed.'
+    Test-CheckCondition `
+        -Name 'ARCHIVE-013 windows: zip archive marker exists' `
+        -Condition (Test-Path -LiteralPath $zipFixture.InstallMarkerPath -PathType Leaf) `
+        -FailureDetail 'Zip archive marker was not written.'
+
+    $unsafeZipLayout = Initialize-IsolatedScriptLayout -ManifestContent (Get-UnavailableManifestContent)
+    $unsafeZipFixture = Initialize-WindowsDispatchFixture
+    $unsafeZipResult = Invoke-WindowsDispatchFixture `
+        -Layout $unsafeZipLayout `
+        -Fixture $unsafeZipFixture `
+        -ManifestContent (Get-WindowsDirectBinaryManifestContent -Url $unsafeZipFixture.UnsafeZipArchiveUrl -ArchiveKind 'zip')
+
+    Test-NonzeroExitCode -Name 'ARCHIVE-014 windows: unsafe zip archive exits nonzero' -Result $unsafeZipResult
+    Test-ResultText `
+        -Name 'ARCHIVE-014 windows: unsafe zip archive diagnostic' `
+        -Result $unsafeZipResult `
+        -ExpectedText 'Unsafe archive member'
+    Test-ResultText `
+        -Name 'ARCHIVE-014 windows: unsafe zip archive failed status' `
+        -Result $unsafeZipResult `
+        -ExpectedText 'Failed'
+    Test-CheckCondition `
+        -Name 'ARCHIVE-014 windows: unsafe zip archive writes no marker' `
+        -Condition (-not (Test-Path -LiteralPath $unsafeZipFixture.InstallMarkerPath -PathType Leaf)) `
+        -FailureDetail 'Marker was written after unsafe archive extraction failed.'
 
     $installerLayout = Initialize-IsolatedScriptLayout -ManifestContent (Get-UnavailableManifestContent)
     $installerFixture = Initialize-WindowsDispatchFixture -IncludeDirectInstaller

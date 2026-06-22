@@ -1145,6 +1145,110 @@ function Get-ArchiveDownloadFileName {
     }
 }
 
+function Confirm-ArchiveMemberSafe {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$MemberName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ToolId,
+
+        [switch]$Link
+    )
+
+    $normalizedMemberName = $MemberName.Replace('\', '/')
+    if ([string]::IsNullOrWhiteSpace($normalizedMemberName) -or
+        $normalizedMemberName.StartsWith('/') -or
+        $normalizedMemberName -match '^[A-Za-z]:') {
+        throw "Unsafe archive member '$MemberName' for tool '$ToolId'."
+    }
+
+    if (($normalizedMemberName -split '/') -contains '..') {
+        throw "Unsafe archive member '$MemberName' for tool '$ToolId'."
+    }
+
+    if ($Link) {
+        throw "Unsafe archive member '$MemberName' for tool '$ToolId' is a link."
+    }
+
+    $destinationRoot = [IO.Path]::GetFullPath($DestinationPath)
+    $relativeMemberPath = $normalizedMemberName.Replace('/', [IO.Path]::DirectorySeparatorChar)
+    $targetPath = [IO.Path]::GetFullPath((Join-Path -Path $destinationRoot -ChildPath $relativeMemberPath))
+    if (-not (Test-PathEntryUnderDirectory -PathEntry $targetPath -Directory $destinationRoot)) {
+        throw "Unsafe archive member '$MemberName' for tool '$ToolId' escapes the extraction directory."
+    }
+}
+
+function Test-ZipArchiveEntryLink {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Entry
+    )
+
+    $unixMode = ([int64]$Entry.ExternalAttributes -shr 16) -band 0xFFFF
+    return (($unixMode -band 0xF000) -eq 0xA000)
+}
+
+function Confirm-ZipArchiveSafe {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ArchivePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ToolId
+    )
+
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::OpenRead($ArchivePath)
+    try {
+        foreach ($entry in $archive.Entries) {
+            Confirm-ArchiveMemberSafe `
+                -MemberName $entry.FullName `
+                -DestinationPath $DestinationPath `
+                -ToolId $ToolId `
+                -Link:(Test-ZipArchiveEntryLink -Entry $entry)
+        }
+    } finally {
+        $archive.Dispose()
+    }
+}
+
+function Confirm-TarArchiveSafe {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ArchivePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ToolId
+    )
+
+    $memberOutput = Invoke-NativeCommand -Command 'tar' -Arguments @('-tf', $ArchivePath)
+    foreach ($memberName in @($memberOutput -split '\r?\n')) {
+        if ([string]::IsNullOrWhiteSpace($memberName)) {
+            continue
+        }
+
+        Confirm-ArchiveMemberSafe -MemberName $memberName -DestinationPath $DestinationPath -ToolId $ToolId
+    }
+
+    $verboseOutput = Invoke-NativeCommand -Command 'tar' -Arguments @('-tvf', $ArchivePath)
+    foreach ($verboseLine in @($verboseOutput -split '\r?\n')) {
+        if ($verboseLine -match '^[lh]') {
+            throw "Unsafe archive member for tool '$ToolId' is a link: $verboseLine"
+        }
+    }
+}
+
 function Expand-ToolArchive {
     param(
         [Parameter(Mandatory = $true)]
@@ -1164,6 +1268,7 @@ function Expand-ToolArchive {
     switch ($archiveKind) {
         'zip' {
             Write-TraceDetail "Extracting zip archive for '$ToolId' to '$DestinationPath'."
+            Confirm-ZipArchiveSafe -ArchivePath $ArchivePath -DestinationPath $DestinationPath -ToolId $ToolId
             Expand-Archive -LiteralPath $ArchivePath -DestinationPath $DestinationPath -Force
         }
         'seven_zip' {
@@ -1172,6 +1277,7 @@ function Expand-ToolArchive {
             }
 
             Write-TraceDetail "Extracting 7z archive for '$ToolId' to '$DestinationPath'."
+            Confirm-TarArchiveSafe -ArchivePath $ArchivePath -DestinationPath $DestinationPath -ToolId $ToolId
             Confirm-Directory -Path $DestinationPath
             Invoke-NativeCommand -Command 'tar' -Arguments @('-xf', $ArchivePath, '-C', $DestinationPath) | Out-Null
         }
