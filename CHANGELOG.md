@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.4.4
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| 1786e56 | docs: clarify supply trust roadmap | asphyx |
+| 730fd2c | fix(windows): stage binary downloads | asphyx |
+| 86f644e | test: cover conda trust strategy | asphyx |
+| 03c29a7 | test: isolate path fixtures | asphyx |
+| c8a5aa8 | fix(windows): validate archive entries | asphyx |
+| 121dbfa | test: enforce supply trust coverage | asphyx |
+| 375aa7c | docs: align PowerShell checks | asphyx |
+| e3af67e | ci: add shfmt validation gate | asphyx |
+| 6121e64 | test: validate tool coverage mappings | asphyx |
+| 5935e73 | refactor(test): group plan checks | asphyx |
+| b5ae46f | ci: pin validation actions | asphyx |
+| f92950f | ci: add actionlint validation | asphyx |
+| ffb1e5d | ci: run test plan in validation | asphyx |
+| a2d13d6 | fix(linux): reject unsafe archives | asphyx |
+
 ## v1.4.3
 
 | References | Description | Author(s) |

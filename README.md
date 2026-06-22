@@ -157,6 +157,8 @@ Passing `--prefix <directory>` changes the root used for these defaults to
 - Builds Ghostscript from source when a C compiler is available on Linux, then
   falls back to conda-forge through user-scoped micromamba when it is not.
 - Supports dry runs that simulate successful execution without making changes.
+- Validates archive entries before extraction and stages Windows direct binary
+  downloads before publishing final command targets.
 - Prints visible progress for each major action, with detailed traces when
   verbose output is enabled. Log prefixes use padded log4j-style levels such
   as `[INFO ]`, `[WARN ]`, `[ERROR]`, and `[DEBUG]`.
@@ -264,10 +266,12 @@ including `latest`, `stable`, and latest GitHub release assets. This project
 optimizes for bootstrapping current validation tools, not for reproducible
 pinned tool versions.
 
-These moving upstream sources are an explicit bootstrapping trust boundary. The
-project does not currently verify downloaded checksums or signatures, so users
-should treat upstream package managers, release assets, and direct download URLs
-as trusted inputs when running the installers.
+These moving upstream sources are an explicit bootstrapping trust boundary and
+an accepted repository risk tracked through the installer verification strategy
+table in `TEST_PLAN.md`. The project does not currently verify downloaded
+checksums or signatures, so users should treat upstream package managers,
+release assets, and direct download URLs as trusted inputs when running the
+installers.
 
 ## Verification
 
@@ -336,7 +340,7 @@ reporting.
 
 Scripts report `git describe --tags --long --always --dirty` when they run
 from a Git checkout. If Git or `.git` metadata is unavailable, they fall back
-to `v1.4.3`. `CHANGELOG.md` uses tag sections for release entries.
+to `v1.4.4`. `CHANGELOG.md` uses tag sections for release entries.
 
 ## Contributing
 
