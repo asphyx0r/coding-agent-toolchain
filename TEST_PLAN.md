@@ -142,6 +142,7 @@ Accepted strategies are `trusted_upstream`, `checksum`, and `signature`.
 | Installer kind | Verification strategy |
 | --- | --- |
 | `appimage_extract` | `trusted_upstream` |
+| `conda_forge` | `trusted_upstream` |
 | `direct_binary` | `trusted_upstream` |
 | `direct_installer` | `trusted_upstream` |
 | `github_release_asset` | `trusted_upstream` |
