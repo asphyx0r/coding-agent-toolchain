@@ -559,6 +559,11 @@ function Add-UserPathEntry {
     )
 
     Add-CurrentPathEntry -Path $Path
+    if ($env:CAT_TEST_SKIP_USER_PATH_PERSISTENCE -eq '1') {
+        Write-TraceDetail 'Skipping current user PATH persistence for test isolation.'
+        return
+    }
+
     $separator = [IO.Path]::PathSeparator
     $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
     $userPathEntries = @()

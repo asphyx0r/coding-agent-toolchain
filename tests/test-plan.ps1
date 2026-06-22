@@ -361,6 +361,11 @@ function Initialize-IsolatedScriptLayout {
 }
 
 function Get-PowerShellCommandName {
+    $currentProcess = Get-Process -Id $PID
+    if (-not [string]::IsNullOrWhiteSpace($currentProcess.Path)) {
+        return $currentProcess.Path
+    }
+
     if ($PSVersionTable.PSEdition -eq 'Core') {
         return 'pwsh'
     }
@@ -1856,6 +1861,7 @@ public static class $className
             PATH = ($windowsPathEntries -join [IO.Path]::PathSeparator)
             CAT_TEST_WINDOWS_FAKE_BIN = $fakeBinDirectory
             CAT_TEST_WINDOWS_PORTABLE_SOURCE = $portableSourcePath
+            CAT_TEST_SKIP_USER_PATH_PERSISTENCE = '1'
         }
     }
 }
@@ -3135,9 +3141,9 @@ function Test-WindowsArchiveAndDirectInstallerFlow {
         -Result $downloadFailureResult `
         -ExpectedText 'Failed'
     Test-ResultText `
-        -Name 'ARCHIVE-009 windows: download failure reports install failure' `
+        -Name 'ARCHIVE-009 windows: download failure uses staged download' `
         -Result $downloadFailureResult `
-        -ExpectedText 'Installation failed'
+        -ExpectedText 'Downloading plain binary file'
     Test-CheckCondition `
         -Name 'ARCHIVE-009 windows: failed download publishes no target' `
         -Condition (-not (Test-Path -LiteralPath $downloadFailureFixture.PortableInstalledToolPath -PathType Leaf)) `
