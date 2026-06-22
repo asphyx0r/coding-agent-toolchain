@@ -670,6 +670,24 @@ function Invoke-NativeCommand {
     return $text
 }
 
+function Save-DownloadFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Url,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $uri = $null
+    if ([uri]::TryCreate($Url, [UriKind]::Absolute, [ref]$uri) -and $uri.IsFile) {
+        Copy-Item -LiteralPath $uri.LocalPath -Destination $Path -Force -ErrorAction Stop
+        return
+    }
+
+    Invoke-WebRequest -Uri $Url -OutFile $Path -UseBasicParsing -ErrorAction Stop
+}
+
 function Get-ToolExecutable {
     param(
         [Parameter(Mandatory = $true)]
@@ -1631,7 +1649,7 @@ function Install-DirectBinaryTool {
         $tempTargetPath = Join-Path -Path $binDir -ChildPath $tempFileName
         try {
             Write-TraceDetail "Downloading plain binary file for '$($Tool['Id'])' to '$tempTargetPath'."
-            Invoke-WebRequest -Uri $url -OutFile $tempTargetPath -UseBasicParsing -ErrorAction Stop
+            Save-DownloadFile -Url $url -Path $tempTargetPath
             Write-TraceDetail "Publishing staged binary for '$($Tool['Id'])' to '$targetPath'."
             Move-Item -LiteralPath $tempTargetPath -Destination $targetPath -Force -ErrorAction Stop
             Publish-ToolCommand -Tool $Tool -Installer $Installer -TargetPath $targetPath
@@ -1653,7 +1671,7 @@ function Install-DirectBinaryTool {
     try {
         Confirm-Directory -Path $tempRoot
         Write-TraceDetail "Downloading archive for '$($Tool['Id'])' to '$archivePath'."
-        Invoke-WebRequest -Uri $url -OutFile $archivePath -UseBasicParsing
+        Save-DownloadFile -Url $url -Path $archivePath
         $expandArguments = @{
             Installer = $Installer
             ArchivePath = $archivePath
@@ -1712,7 +1730,7 @@ function Install-PortableArchiveTool {
     try {
         Confirm-Directory -Path $tempRoot
         Write-TraceDetail "Downloading portable archive for '$($Tool['Id'])' from '$url' to '$archivePath'."
-        Invoke-WebRequest -Uri $url -OutFile $archivePath -UseBasicParsing
+        Save-DownloadFile -Url $url -Path $archivePath
         $expandArguments = @{
             Installer = $Installer
             ArchivePath = $archivePath
@@ -1790,7 +1808,7 @@ function Install-DirectInstallerTool {
         Confirm-Directory -Path $tempRoot
         Confirm-Directory -Path $installDirectory
         Write-TraceDetail "Downloading installer for '$($Tool['Id'])' from '$url' to '$installerPath'."
-        Invoke-WebRequest -Uri $url -OutFile $installerPath -UseBasicParsing
+        Save-DownloadFile -Url $url -Path $installerPath
 
         $arguments = [System.Collections.Generic.List[string]]::new()
         if ($Installer.Contains('install_args') -and -not [string]::IsNullOrWhiteSpace($Installer['install_args'])) {

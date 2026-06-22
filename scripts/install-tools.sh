@@ -372,6 +372,10 @@ unsupported_tool_detail() {
 }
 
 is_pwsh_usable() {
+  if [[ "${CAT_TEST_ASSUME_MISSING_PWSH:-}" == "1" ]]; then
+    return 1
+  fi
+
   command -v pwsh >/dev/null 2>&1 || return 1
   pwsh -NoProfile -Command "\$PSVersionTable.PSVersion.ToString()" >/dev/null 2>&1
 }

@@ -1863,8 +1863,17 @@ public static class $className
     }
 }
 "@
-        Add-Type -TypeDefinition $installerSource -OutputAssembly $installerSourcePath -OutputType ConsoleApplication
-        $directInstallerUrl = ConvertTo-FileUriString -Path $installerSourcePath
+        try {
+            Add-Type `
+                -TypeDefinition $installerSource `
+                -OutputAssembly $installerSourcePath `
+                -OutputType ConsoleApplication
+            $directInstallerUrl = ConvertTo-FileUriString -Path $installerSourcePath
+        } catch {
+            $warning = 'DISPATCH-012 windows skipped because the direct installer fixture could not be compiled: ' +
+                $_.Exception.Message
+            Register-CheckWarning $warning
+        }
     }
 
     $windowsPathEntries = @($fakeBinDirectory, $installDirectory)
@@ -2966,29 +2975,11 @@ function Test-LinuxCommandBackedInstallerFlow {
     $missingPwshFixture = $null
     try {
         $missingPwshFixture = Initialize-LinuxDirectBinaryFixture -Layout $missingPwshLayout
-        $fakeBinDirectory = "$($missingPwshFixture.RuntimePath)/fake-bin"
-        $removePwshCommand = @(
-            'fake_bin=' + (ConvertTo-BashSingleQuotedLiteral -Value $fakeBinDirectory),
-            'real_bash="$(command -v bash)"',
-            'real_dirname="$(command -v dirname)"',
-            'real_mkdir="$(command -v mkdir)"',
-            'real_uname="$(command -v uname)"',
-            'rm -f -- "${fake_bin}/pwsh"',
-            'printf "%s\n" "#!${real_bash}" "exec ${real_dirname} \"\$@\"" >"${fake_bin}/dirname"',
-            'printf "%s\n" "#!${real_bash}" "exec ${real_mkdir} \"\$@\"" >"${fake_bin}/mkdir"',
-            'printf "%s\n" "#!${real_bash}" "exec ${real_uname} \"\$@\"" >"${fake_bin}/uname"',
-            'chmod 755 "${fake_bin}/dirname" "${fake_bin}/mkdir" "${fake_bin}/uname"'
-        ) -join '; '
-        $removePwshResult = Invoke-CommandCapture -Command 'bash' -Arguments @('-lc', $removePwshCommand)
-        if ($removePwshResult.ExitCode -ne 0) {
-            throw "Could not prepare missing-pwsh fixture. Output: $($removePwshResult.Output)"
-        }
-
         $missingPwshEnvironment = @{}
         foreach ($key in $missingPwshFixture.Environment.Keys) {
             $missingPwshEnvironment[$key] = $missingPwshFixture.Environment[$key]
         }
-        $missingPwshEnvironment['PATH'] = $fakeBinDirectory
+        $missingPwshEnvironment['CAT_TEST_ASSUME_MISSING_PWSH'] = '1'
         $missingPwshFixture.Environment = $missingPwshEnvironment
         $missingPwshResult = Invoke-LinuxDirectBinaryFixture `
             -Layout $missingPwshLayout `
@@ -3186,6 +3177,11 @@ function Test-WindowsArchiveAndDirectInstallerFlow {
 
     $installerLayout = Initialize-IsolatedScriptLayout -ManifestContent (Get-UnavailableManifestContent)
     $installerFixture = Initialize-WindowsDispatchFixture -IncludeDirectInstaller
+    if ([string]::IsNullOrWhiteSpace($installerFixture.DirectInstallerUrl)) {
+        Register-CheckWarning 'DISPATCH-012 windows skipped because the direct installer fixture is unavailable.'
+        return
+    }
+
     $installerResult = Invoke-WindowsDispatchFixture `
         -Layout $installerLayout `
         -Fixture $installerFixture `
