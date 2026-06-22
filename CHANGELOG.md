@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 | References | Description | Author(s) |
 | --- | --- | --- |
+| 62e034e | test: isolate Windows path fixtures | asphyx |
 | 1786e56 | docs: clarify supply trust roadmap | asphyx |
 | 730fd2c | fix(windows): stage binary downloads | asphyx |
 | 86f644e | test: cover conda trust strategy | asphyx |
