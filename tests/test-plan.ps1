@@ -2405,18 +2405,26 @@ function Initialize-LinuxDirectBinaryFixture {
         '  exit 0',
         'fi',
         'convert_python_path_env() {',
+        '  local convert_paths="${1:-0}"',
         '  local variable_name',
         '  local variable_value',
-        '  if ! command -v cygpath >/dev/null 2>&1; then',
-        '    return 0',
-        '  fi',
-        '  for variable_name in CAT_ARCHIVE_PATH CAT_TARGET_DIR ARCHIVE_PATH PAYLOAD_PATH SOURCE_ROOT; do',
+        '  for variable_name in CAT_ARCHIVE_KIND CAT_ARCHIVE_PATH CAT_TARGET_DIR ARCHIVE_PATH PAYLOAD_PATH ENTRY_NAME TAR_MODE SOURCE_ROOT; do',
         '    variable_value="${!variable_name:-}"',
-        '    if [[ "${variable_value}" == /* && "${variable_value}" != //* ]]; then',
-        '      export "${variable_name}=$(cygpath -w -- "${variable_value}")"',
+        '    if [[ "${convert_paths}" == "1" && "${variable_value}" == /* && "${variable_value}" != //* ]] && command -v cygpath >/dev/null 2>&1; then',
+        '      variable_value="$(cygpath -w -- "${variable_value}")"',
         '    fi',
+        '    export "${variable_name}=${variable_value}"',
         '  done',
         '}',
+        'host_python="${CAT_TEST_HOST_PYTHON:-}"',
+        'if [[ -n "${host_python}" && -x "${host_python}" ]]; then',
+        '  if [[ "${host_python}" != /usr/bin/* && "${host_python}" != /usr/local/bin/* ]]; then',
+        '    convert_python_path_env 1',
+        '  else',
+        '    convert_python_path_env 0',
+        '  fi',
+        '  exec "${host_python}" "$@"',
+        'fi',
         'fake_bin="${CAT_TEST_FAKE_BIN:-}"',
         'fake_bin="${fake_bin%/}"',
         'for command_name in python3 python3.exe python python.exe; do',
@@ -2427,7 +2435,9 @@ function Initialize-LinuxDirectBinaryFixture {
         '    fi',
         '    if [[ -x "${python_candidate}" ]]; then',
         '      if [[ "${python_candidate}" != /usr/bin/* && "${python_candidate}" != /usr/local/bin/* ]]; then',
-        '        convert_python_path_env',
+        '        convert_python_path_env 1',
+        '      else',
+        '        convert_python_path_env 0',
         '      fi',
         '      exec "${python_candidate}" "$@"',
         '    fi',
@@ -2435,6 +2445,7 @@ function Initialize-LinuxDirectBinaryFixture {
         'done',
         'for python_candidate in /usr/bin/python3 /usr/local/bin/python3 /usr/bin/python /usr/local/bin/python; do',
         '  if [[ -x "${python_candidate}" ]]; then',
+        '    convert_python_path_env 0',
         '    exec "${python_candidate}" "$@"',
         '  fi',
         'done',
@@ -2490,6 +2501,35 @@ function Initialize-LinuxDirectBinaryFixture {
         $defaultToolDirectoryPath = "$homePath/xdg-data/coding-agent-toolchain/tools/" +
             "linux-$machineName/sample-tool"
         $fakeBinDirectoryPath = "$runtimePath/fake-bin"
+        $hostPythonPath = '/__cat_no_host_python__'
+        $hostPythonCandidates = @()
+        if (-not [string]::IsNullOrWhiteSpace($env:Python_ROOT_DIR)) {
+            $hostPythonCandidates += Join-Path -Path $env:Python_ROOT_DIR -ChildPath 'python.exe'
+        }
+        foreach ($commandName in @('python3', 'python')) {
+            $hostPythonCommand = Get-Command -Name $commandName -CommandType Application -ErrorAction SilentlyContinue
+            if ($null -ne $hostPythonCommand) {
+                $hostPythonCandidates += $hostPythonCommand.Source
+            }
+        }
+        & bash -lc 'command -v cygpath >/dev/null 2>&1'
+        if ($LASTEXITCODE -ne 0) {
+            $hostPythonCandidates = @()
+        }
+        foreach ($hostPythonCandidate in $hostPythonCandidates) {
+            if ($hostPythonCandidate -match '[\\/]Microsoft[\\/]WindowsApps[\\/]python3?\.exe$') {
+                continue
+            }
+            if (-not (Test-Path -LiteralPath $hostPythonCandidate -PathType Leaf)) {
+                continue
+            }
+            if ($hostPythonCandidate -match '^[A-Za-z]:[\\/]') {
+                $hostPythonPath = ConvertTo-BashHostPath -Path $hostPythonCandidate
+            } else {
+                $hostPythonPath = $hostPythonCandidate
+            }
+            break
+        }
 
         return [pscustomobject]@{
             RuntimePath = $runtimePath
@@ -2513,6 +2553,7 @@ function Initialize-LinuxDirectBinaryFixture {
                 CAT_TEST_SOURCE_FILE = "$runtimePath/source/sample-tool"
                 CAT_TEST_SOURCE_MODE = $SourceMode
                 CAT_TEST_FAKE_BIN = $fakeBinDirectoryPath
+                CAT_TEST_HOST_PYTHON = $hostPythonPath
                 CAT_TEST_PWSH_STATE = "$runtimePath/pwsh-state/installed"
                 CAT_TEST_PWSH_MODULE_DIR = "$runtimePath/pwsh-module/sample-tool"
             }
