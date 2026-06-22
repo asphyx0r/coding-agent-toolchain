@@ -197,13 +197,21 @@ function Resolve-PhysicalDirectory {
     return $item.FullName.TrimEnd($trimChars)
 }
 
+function Get-UserProfileRoot {
+    if ($DryRunEnabled -and -not [string]::IsNullOrWhiteSpace($env:CAT_TEST_USER_PROFILE_ROOT)) {
+        return $env:CAT_TEST_USER_PROFILE_ROOT
+    }
+
+    return [Environment]::GetFolderPath('UserProfile')
+}
+
 $InstallPrefix = ''
 if (-not [string]::IsNullOrWhiteSpace($Prefix)) {
     $InstallPrefix = Resolve-PhysicalDirectory `
         -Path $Prefix `
         -MissingMessage '--prefix must point to an existing directory inside the current user profile.'
     $userProfileRoot = Resolve-PhysicalDirectory `
-        -Path ([Environment]::GetFolderPath('UserProfile')) `
+        -Path (Get-UserProfileRoot) `
         -MissingMessage '--prefix requires a valid current user profile directory.'
     $trimChars = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
     $normalizedInstallPrefix = $InstallPrefix.TrimEnd($trimChars)
@@ -2095,7 +2103,7 @@ function Get-PathVerificationStatus {
 }
 
 function Assert-RemoveModeAllowed {
-    $profileRoot = [Environment]::GetFolderPath('UserProfile')
+    $profileRoot = (Get-UserProfileRoot)
     if ([string]::IsNullOrWhiteSpace($profileRoot) -or -not (Test-Path -LiteralPath $profileRoot -PathType Container)) {
         throw '--remove requires a valid current user profile directory.'
     }
@@ -2165,7 +2173,7 @@ function Resolve-SafeRemovalDirectory {
 
     $target = Resolve-ExistingDirectoryPath -Directory $Directory
     $trimChars = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
-    $profileRoot = [IO.Path]::GetFullPath([Environment]::GetFolderPath('UserProfile')).TrimEnd($trimChars)
+    $profileRoot = [IO.Path]::GetFullPath((Get-UserProfileRoot)).TrimEnd($trimChars)
     $normalizedTarget = [IO.Path]::GetFullPath($target).TrimEnd($trimChars)
 
     $isProfileRoot = [string]::Equals($normalizedTarget, $profileRoot, [StringComparison]::OrdinalIgnoreCase)

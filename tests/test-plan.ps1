@@ -3440,11 +3440,12 @@ function Test-PrefixPathValidation {
 
         $userRootLayout = Initialize-IsolatedScriptLayout -ManifestContent (Get-DryRunManifestContent)
         $userRootConfigPath = Get-PlatformPathArgument -Platform $platform -Path $userRootLayout.ManifestPath
-        $userRootPrefix = [Environment]::GetFolderPath('UserProfile')
+        $userRootPrefix = $userRootLayout.Home
         $userRootResult = Invoke-IsolatedToolScript `
             -Platform $platform `
             -Layout $userRootLayout `
-            -Arguments @('-d', '-c', $userRootConfigPath, '-p', $userRootPrefix)
+            -Arguments @('-d', '-c', $userRootConfigPath, '-p', $userRootPrefix) `
+            -Environment @{ CAT_TEST_USER_PROFILE_ROOT = $userRootPrefix }
         Test-ExitCode -Name "PATH-006 ${platform}: user-root prefix exits zero" -Result $userRootResult -ExpectedExitCode 0
         Test-ResultText `
             -Name "PATH-006 ${platform}: user-root prefix stays under toolchain root" `
@@ -3487,36 +3488,12 @@ function Test-PrefixPhysicalEscapeRejection {
         $externalToolRoot = Join-Path -Path $externalPrefix -ChildPath 'coding-agent-toolchain'
 
         if ($platform -eq 'windows') {
-            $userProfileRoot = [Environment]::GetFolderPath('UserProfile')
-            $publicRoot = $env:PUBLIC
-            if ([string]::IsNullOrWhiteSpace($userProfileRoot) -or
-                -not (Test-Path -LiteralPath $userProfileRoot -PathType Container)) {
-                Register-CheckWarning 'PATH-018 windows skipped because the user profile is unavailable.'
-                continue
-            }
-            if ([string]::IsNullOrWhiteSpace($publicRoot) -or
-                -not (Test-Path -LiteralPath $publicRoot -PathType Container)) {
-                Register-CheckWarning 'PATH-018 windows skipped because the public profile is unavailable.'
-                continue
-            }
-
-            $profileFixtureRoot = Join-Path -Path $userProfileRoot -ChildPath (
-                '.cat-test-' + [guid]::NewGuid().ToString('N')
-            )
-            $externalPrefix = Join-Path -Path $publicRoot -ChildPath (
-                '.cat-test-' + [guid]::NewGuid().ToString('N')
-            )
-            $externalToolRoot = Join-Path -Path $externalPrefix -ChildPath 'coding-agent-toolchain'
-            $escapedPrefix = Join-Path -Path $profileFixtureRoot -ChildPath 'escaped-prefix'
+            $userProfileRoot = $layout.Home
+            $escapedPrefix = Join-Path -Path $userProfileRoot -ChildPath 'escaped-prefix'
             try {
-                New-Item -ItemType Directory -Path $profileFixtureRoot -ErrorAction Stop | Out-Null
-                New-Item -ItemType Directory -Path $externalPrefix -ErrorAction Stop | Out-Null
                 New-Item -ItemType Junction -Path $escapedPrefix -Target $externalPrefix -ErrorAction Stop | Out-Null
             } catch {
                 Register-CheckWarning "PATH-018 windows skipped because link setup failed: $($_.Exception.Message)"
-                if (Test-Path -LiteralPath $profileFixtureRoot -PathType Container) {
-                    Remove-Item -LiteralPath $profileFixtureRoot -Force -ErrorAction SilentlyContinue
-                }
                 if (Test-Path -LiteralPath $externalPrefix -PathType Container) {
                     Remove-Item -LiteralPath $externalPrefix -Recurse -Force -ErrorAction SilentlyContinue
                 }
@@ -3527,7 +3504,8 @@ function Test-PrefixPhysicalEscapeRejection {
                 $result = Invoke-IsolatedToolScript `
                     -Platform $platform `
                     -Layout $layout `
-                    -Arguments @('-d', '-c', $configPath, '-p', $escapedPrefix)
+                    -Arguments @('-d', '-c', $configPath, '-p', $escapedPrefix) `
+                    -Environment @{ CAT_TEST_USER_PROFILE_ROOT = $userProfileRoot }
                 Test-NonzeroExitCode -Name 'PATH-018 windows: linked prefix fails' -Result $result
                 Test-ResultText `
                     -Name 'PATH-018 windows: linked prefix diagnostic' `
@@ -3544,9 +3522,6 @@ function Test-PrefixPhysicalEscapeRejection {
                     } catch {
                         Register-CheckWarning "Could not remove PATH-018 junction '$escapedPrefix': $($_.Exception.Message)"
                     }
-                }
-                if (Test-Path -LiteralPath $profileFixtureRoot -PathType Container) {
-                    Remove-Item -LiteralPath $profileFixtureRoot -Force -ErrorAction SilentlyContinue
                 }
                 if (Test-Path -LiteralPath $externalPrefix -PathType Container) {
                     Remove-Item -LiteralPath $externalPrefix -Recurse -Force -ErrorAction SilentlyContinue
