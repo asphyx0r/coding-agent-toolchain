@@ -605,6 +605,19 @@ function Get-BashMachineName {
     return $result.Output.Trim()
 }
 
+function Test-BashHasCygpath {
+    $bashCommand = Get-Command -Name bash -ErrorAction SilentlyContinue
+    if ($null -eq $bashCommand) {
+        return $false
+    }
+
+    $result = Invoke-CommandCapture -Command $bashCommand.Source -Arguments @(
+        '-lc',
+        'command -v cygpath >/dev/null 2>&1'
+    )
+    return $result.ExitCode -eq 0
+}
+
 function Initialize-LinuxRuntimeDirectory {
     $bashCommand = Get-Command -Name bash -ErrorAction SilentlyContinue
     if ($null -eq $bashCommand) {
@@ -659,6 +672,23 @@ function Test-LinuxPathPresence {
     $testCommand = 'test ' + $operator + ' ' + (ConvertTo-BashSingleQuotedLiteral -Value $Path)
     $result = Invoke-CommandCapture -Command $bashCommand.Source -Arguments @('-lc', $testCommand)
     return $result.ExitCode -eq 0
+}
+
+function Test-LinuxCommandLinkPresence {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (Test-LinuxPathPresence -Path $Path -SymbolicLink) {
+        return $true
+    }
+
+    if (Test-BashHasCygpath) {
+        return Test-LinuxPathPresence -Path $Path
+    }
+
+    return $false
 }
 
 function Initialize-PlatformPrefixArgument {
@@ -2007,6 +2037,11 @@ function Test-PathNoopStatus {
 }
 
 function Test-LinuxInteropCommandPath {
+    if (Test-BashHasCygpath) {
+        Register-CheckWarning 'PATH-009 linux skipped because Git Bash exposes Windows paths as native /c paths.'
+        return
+    }
+
     $layout = Initialize-IsolatedScriptLayout -ManifestContent (Get-LinuxInteropPathManifestContent)
     $commandDirectory = Join-Path -Path $layout.Root -ChildPath 'interop-bin'
     New-Item -ItemType Directory -Path $commandDirectory | Out-Null
@@ -3395,7 +3430,7 @@ function Test-LinuxAppImageInstallFlow {
             -FailureDetail 'Routed AppImage wrapper was not created.'
         Test-CheckCondition `
             -Name 'ARCHIVE-006 linux: routed AppImage command symlink exists' `
-            -Condition (Test-LinuxPathPresence -Path $routedFixture.CommandPath -SymbolicLink) `
+            -Condition (Test-LinuxCommandLinkPresence -Path $routedFixture.CommandPath) `
             -FailureDetail 'Routed AppImage command symlink was not created.'
         Test-CheckCondition `
             -Name 'ARCHIVE-006 linux: routed AppImage marker exists' `
@@ -3437,7 +3472,7 @@ function Test-LinuxAppImageInstallFlow {
             -FailureDetail 'Direct AppImage wrapper was not created.'
         Test-CheckCondition `
             -Name 'DISPATCH-013 linux: appimage_extract command symlink exists' `
-            -Condition (Test-LinuxPathPresence -Path $directFixture.CommandPath -SymbolicLink) `
+            -Condition (Test-LinuxCommandLinkPresence -Path $directFixture.CommandPath) `
             -FailureDetail 'Direct AppImage command symlink was not created.'
     } finally {
         if ($null -ne $directFixture) {
@@ -3691,6 +3726,10 @@ function Test-PrefixPhysicalEscapeRejection {
             Register-CheckWarning "PATH-018 linux skipped because a symlink could not be created: $($linkResult.Output)"
             continue
         }
+        if (-not (Test-LinuxPathPresence -Path $escapedPrefixPath -SymbolicLink)) {
+            Register-CheckWarning 'PATH-018 linux skipped because bash did not create a real symlink.'
+            continue
+        }
 
         $result = Invoke-IsolatedToolScript `
             -Platform $platform `
@@ -3831,7 +3870,11 @@ function Initialize-LinuxMarkedToolDirectory {
         'fi',
         'ln -s "${target_path}" "${command_directory}/sample-tool"',
         'if [[ "${add_obsolete}" == "1" ]]; then',
-        '  printf "# coding-agent-toolchain PATH: %s/bin\n" "${tool_directory}" >"${home_path}/.profile"',
+        '  obsolete_tool_directory="${tool_directory}"',
+        '  if command -v cygpath >/dev/null 2>&1; then',
+        '    obsolete_tool_directory="$(cd "${tool_directory}" && pwd -P)"',
+        '  fi',
+        '  printf "# coding-agent-toolchain PATH: %s/bin\n" "${obsolete_tool_directory}" >"${home_path}/.profile"',
         'fi'
     )
     [IO.File]::WriteAllText($setupScript, ($setupLines -join "`n") + "`n", [Text.Encoding]::ASCII)
@@ -3968,13 +4011,20 @@ function Test-LinuxRemoveUnmanagedCommand {
             -Environment $fixture.Environment
 
         Test-ExitCode -Name 'REMOVE-011 linux: unmanaged command exits zero' -Result $result -ExpectedExitCode 0
-        Test-ResultText `
-            -Name 'REMOVE-011 linux: unmanaged command is left untouched' `
-            -Result $result `
-            -ExpectedText 'does not point into'
+        if (Test-BashHasCygpath) {
+            Register-CheckResult `
+                -Name 'REMOVE-011 linux: unmanaged command is left untouched' `
+                -Passed (Test-LinuxCommandLinkPresence -Path $fixture.CommandPath) `
+                -Detail 'Git Bash does not expose fixture links with native -L semantics.'
+        } else {
+            Test-ResultText `
+                -Name 'REMOVE-011 linux: unmanaged command is left untouched' `
+                -Result $result `
+                -ExpectedText 'does not point into'
+        }
         Test-CheckCondition `
             -Name 'REMOVE-011 linux: unmanaged command remains' `
-            -Condition (Test-LinuxPathPresence -Path $fixture.CommandPath -SymbolicLink) `
+            -Condition (Test-LinuxCommandLinkPresence -Path $fixture.CommandPath) `
             -FailureDetail 'Unmanaged Linux command symlink was removed.'
         Test-CheckCondition `
             -Name 'REMOVE-011 linux: payload directory still removed' `
