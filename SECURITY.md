@@ -17,6 +17,12 @@ verification strategy. The `trusted_upstream` strategy records an explicit
 trust decision for moving sources until checksum or signature verification is
 implemented for that kind.
 
+This is an accepted bootstrapping risk for the current repository scope, not a
+guarantee that upstream artifacts are stable or authenticated. Track
+remediation through the installer verification strategy table and update the
+manifest schema plus installer enforcement before marking any kind as
+`checksum` or `signature`.
+
 Treat the manifest sources and the upstream package managers or release assets
 they reference as trusted inputs before running an install. This boundary is
 separate from the GitHub Actions validation workflow trust boundary documented
