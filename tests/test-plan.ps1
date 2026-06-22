@@ -219,6 +219,31 @@ function Invoke-ExternalCheck {
     Register-CheckResult -Name $Name -Passed ($exitCode -eq 0) -Detail $detail
 }
 
+function ConvertTo-BashHostPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $cygpathOutput = & bash -lc 'if command -v cygpath >/dev/null 2>&1; then cygpath -u "$1"; else exit 127; fi' `
+        'cat-test' `
+        $Path 2>&1
+    if ($LASTEXITCODE -eq 0 -and $null -ne $cygpathOutput) {
+        $convertedPath = (($cygpathOutput | Select-Object -First 1).ToString()).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($convertedPath)) {
+            return $convertedPath
+        }
+    }
+
+    if ($Path -match '^([A-Za-z]):[\\/](.*)$') {
+        $drive = $matches[1].ToLowerInvariant()
+        $pathWithoutDrive = $matches[2] -replace '\\', '/'
+        return "/mnt/$drive/$pathWithoutDrive"
+    }
+
+    throw "Path '$Path' cannot be converted safely for bash."
+}
+
 function ConvertTo-BashPath {
     param(
         [Parameter(Mandatory = $true)]
@@ -249,11 +274,8 @@ function ConvertTo-BashPath {
     if ($isTempPath) {
         $tempRelativePath = $resolvedPath.Substring($tempRootPath.Length).TrimStart($trimCharacters)
         $tempTopDirectory = ($tempRelativePath -split '[\\/]', 2)[0]
-        if ($tempTopDirectory.StartsWith('cat-test-', [StringComparison]::Ordinal) -and
-            $resolvedPath -match '^([A-Za-z]):[\\/](.*)$') {
-            $drive = $matches[1].ToLowerInvariant()
-            $pathWithoutDrive = $matches[2] -replace '\\', '/'
-            return "/mnt/$drive/$pathWithoutDrive"
+        if ($tempTopDirectory.StartsWith('cat-test-', [StringComparison]::Ordinal)) {
+            return ConvertTo-BashHostPath -Path $resolvedPath
         }
     }
 
@@ -390,6 +412,15 @@ function Invoke-IsolatedToolScript {
     )
 
     if ($Platform -eq 'windows') {
+        $scriptEnvironment = @{}
+        foreach ($key in $Environment.Keys) {
+            $scriptEnvironment[$key] = $Environment[$key]
+        }
+
+        if (-not $scriptEnvironment.ContainsKey('CAT_TEST_FORCE_ADMINISTRATOR')) {
+            $scriptEnvironment['CAT_TEST_ASSUME_STANDARD_USER'] = '1'
+        }
+
         $powerShellArguments = @(
             '-NoProfile',
             '-ExecutionPolicy',
@@ -400,7 +431,7 @@ function Invoke-IsolatedToolScript {
         return Invoke-CommandCapture `
             -Command (Get-PowerShellCommandName) `
             -Arguments $powerShellArguments `
-            -Environment $Environment `
+            -Environment $scriptEnvironment `
             -WorkingDirectory $WorkingDirectory
     }
 
