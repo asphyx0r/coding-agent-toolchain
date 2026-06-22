@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.4.5
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| 6a48289 | fix(ci): support Git Bash fixtures | asphyx |
+| 6c83215 | `fix(ci): handle shell python shims` | asphyx |
+| fa66e45 | `fix(ci): use bash python discovery` | asphyx |
+| a3dac00 | `fix(ci): convert git bash python paths` | asphyx |
+| ae6f74d | fix(ci): stabilize Windows test fixtures | asphyx |
+| 7450f84 | fix(ci): stabilize offline fixtures | asphyx |
+| 1faf57b | fix(ci): stabilize offline test plan | asphyx |
+| 360c861 | style: satisfy CI shfmt layout | asphyx |
+
 ## v1.4.4
 
 | References | Description | Author(s) |

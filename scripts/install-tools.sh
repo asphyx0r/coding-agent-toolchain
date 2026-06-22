@@ -5,7 +5,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 config_path="${script_dir}/../config/tools.yaml"
 platform_name="linux"
 arg_delimiter=$'\034'
-readonly TOOL_VERSION_FALLBACK="v1.4.4"
+readonly TOOL_VERSION_FALLBACK="v1.4.5"
 
 script_version() {
   local repo_root
