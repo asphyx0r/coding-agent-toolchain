@@ -119,3 +119,71 @@ jobs:
       - name: Run offline test plan
         shell: pwsh
         run: ./tests/test-plan.ps1
+
+  validate-linux:
+    name: Validate repository (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: "22"
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.x"
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5
+        with:
+          go-version: "stable"
+
+      - name: Install validation tools
+        shell: bash
+        run: |
+          npm install --global markdownlint-cli2
+          python -m pip install --upgrade pip
+          python -m pip install yamllint codespell
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+          echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
+          go install mvdan.cc/sh/v3/cmd/shfmt@latest
+          go install github.com/rhysd/actionlint/cmd/actionlint@latest
+
+      - name: Run Markdown lint
+        shell: bash
+        run: markdownlint-cli2 "**/*.md"
+
+      - name: Run YAML lint
+        shell: bash
+        run: yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml .github/workflows/validation.yml
+
+      - name: Run actionlint
+        shell: bash
+        run: actionlint .github/workflows/validation.yml
+
+      - name: Check Bash syntax
+        shell: bash
+        run: bash -n scripts/install-tools.sh
+
+      - name: Run shfmt
+        shell: bash
+        run: shfmt -d -i 2 scripts/install-tools.sh
+
+      - name: Run ShellCheck
+        shell: bash
+        run: shellcheck scripts/install-tools.sh
+
+      - name: Check JavaScript config syntax
+        shell: bash
+        run: node --check commitlint.config.cjs
+
+      - name: Run codespell
+        shell: bash
+        run: codespell .
