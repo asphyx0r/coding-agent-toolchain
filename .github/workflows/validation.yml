@@ -80,7 +80,8 @@ jobs:
         run: |
           $scriptPaths = @(
             "./scripts/install-tools.ps1",
-            "./tests/test-plan.ps1"
+            "./tests/test-plan.ps1",
+            "./tests/generate-combination-inventory.ps1"
           )
           foreach ($scriptPath in $scriptPaths) {
             $tokens = $null
@@ -102,6 +103,7 @@ jobs:
           $findings = @(
             Invoke-ScriptAnalyzer -Path ./scripts/install-tools.ps1
             Invoke-ScriptAnalyzer -Path ./tests/test-plan.ps1
+            Invoke-ScriptAnalyzer -Path ./tests/generate-combination-inventory.ps1
           )
           if ($findings.Count -gt 0) {
             $findings | Format-Table -AutoSize

@@ -38,12 +38,14 @@ class, marked invalid by contract, or marked not applicable with a reason.
 ## Completion Criteria
 
 The implemented offline runner is complete for the structural coverage contract
-when all criteria below are true. It does not generate or validate a complete
-cartesian matrix inventory; that fuller inventory remains future work until a
-row file or generator exists.
+when all criteria below are true. It generates a deterministic matrix inventory
+on demand and validates the generator count and row shape without requiring
+routine runs to persist or exhaustively validate every generated row.
 
 - Every expected axis in the combination model is documented with values.
 - The inventory template exposes every required column.
+- The generated inventory reports the full cartesian row count and emits rows
+  with every required template column without storing a static inventory file.
 - Accepted `Coverage` status forms are documented, and the example row uses an
   accepted status.
 - Every referenced test ID resolves to a documented direct test or structural
@@ -58,7 +60,7 @@ row file or generator exists.
 ## Combination Model
 
 The axes in this section define the target model for current direct tests and a
-future full matrix inventory. A future row is valid only when all axes have a
+generated matrix inventory. A generated row is valid only when all axes have a
 value and the `Coverage` field is one of `direct_test`,
 `equivalent:<test-id>`, `invalid:<reason>`, or `not_applicable:<reason>`.
 
@@ -86,10 +88,11 @@ value and the `Coverage` field is one of `direct_test`,
 
 ## Combination Inventory Template
 
-Use this template for any generated or manually maintained inventory. The
-current offline runner validates the template and example only; it does not
-require a materialized row for every cartesian combination. A future inventory
-may live in a test fixture file later, but every row must use these columns.
+Use this template for generated or manually maintained inventory rows.
+`tests/generate-combination-inventory.ps1` reads the combination model and
+emits deterministic CSV rows with these columns. Routine validation checks the
+generator count and a small bounded row sample; it does not store a
+materialized row for every cartesian combination.
 
 | ID | Platform | Mode | Options | Config | Prefix | Tool State | Installer | File State | Expected | Coverage |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -114,8 +117,9 @@ not overlap.
 | `MATRIX-002` | Inventory template | Validate the inventory template columns. | The template exposes every required column. |
 | `MATRIX-003` | Coverage status | Validate accepted `Coverage` status forms and the example row. | The contract lists every accepted status form, and the example uses one. |
 | `MATRIX-004` | References | Validate every referenced test ID. | Each reference resolves to a documented direct test or structural check. |
-| `MATRIX-005` | Coverage boundary | Document that full cartesian row validation is not currently claimed. | The test plan states that complete cartesian matrix validation is future work. |
+| `MATRIX-005` | Coverage boundary | Document that full cartesian row persistence and exhaustive validation are not required for routine runs. | The test plan states that routine runs do not persist or exhaustively validate every generated row. |
 | `MATRIX-006` | Canonical tools | Cross-check every canonical tool against documented tool coverage rows. | Each tool appears once, declared platform kinds match the manifest, and each kind maps to required dispatch or unavailable coverage. |
+| `MATRIX-007` | Generated inventory | Validate the inventory generator existence, cartesian count, and row shape. | The generator reports a positive count and emits CSV rows with the required columns. |
 
 ### Static Quality Tests
 

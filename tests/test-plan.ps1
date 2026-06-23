@@ -4231,7 +4231,7 @@ function Invoke-YamlFallback {
 }
 
 function Invoke-PowerShellParserCheck {
-    foreach ($relativePath in @('scripts/install-tools.ps1', 'tests/test-plan.ps1')) {
+    foreach ($relativePath in @('scripts/install-tools.ps1', 'tests/test-plan.ps1', 'tests/generate-combination-inventory.ps1')) {
         $tokens = $null
         $errors = $null
         $scriptPath = Get-RepositoryPath -RelativePath $relativePath
@@ -4256,7 +4256,7 @@ function Invoke-ScriptAnalyzerCheck {
         return
     }
 
-    foreach ($relativePath in @('scripts/install-tools.ps1', 'tests/test-plan.ps1')) {
+    foreach ($relativePath in @('scripts/install-tools.ps1', 'tests/test-plan.ps1', 'tests/generate-combination-inventory.ps1')) {
         $scriptPath = Get-RepositoryPath -RelativePath $relativePath
         $findings = @(Invoke-ScriptAnalyzer -Path $scriptPath)
         $detail = ($findings | ForEach-Object { "$($_.RuleName): $($_.Message)" }) -join [Environment]::NewLine
@@ -4457,12 +4457,12 @@ function Test-CombinationModel {
         -Condition $coverageContractPresent `
         -FailureDetail 'Coverage contract does not list every accepted status form.'
 
-    $cartesianLimitPresent = $testPlanText -match
-        'does not generate or validate a complete\s+cartesian matrix inventory'
+    $generatedInventoryBoundaryPresent = $testPlanText -match
+        'without requiring\s+routine runs to persist or exhaustively validate every generated row'
     Test-CheckCondition `
-        -Name 'MATRIX-005 cartesian coverage limit documented' `
-        -Condition $cartesianLimitPresent `
-        -FailureDetail 'TEST_PLAN.md claims or omits the current cartesian coverage boundary.'
+        -Name 'MATRIX-005 generated inventory boundary documented' `
+        -Condition $generatedInventoryBoundaryPresent `
+        -FailureDetail 'TEST_PLAN.md claims or omits the generated inventory boundary.'
 }
 
 function Test-InventoryTemplate {
@@ -4493,6 +4493,92 @@ function Test-InventoryTemplate {
         -Name 'MATRIX-003 example coverage status' `
         -Condition ($section -match '\| `MATRIX-EXAMPLE` .* \| `direct_test` \|') `
         -FailureDetail 'Inventory example does not use an accepted Coverage value.'
+}
+
+function Test-GeneratedInventory {
+    $relativePath = 'tests/generate-combination-inventory.ps1'
+    $generatorPath = Get-RepositoryPath -RelativePath $relativePath
+    $generatorExists = Test-Path -LiteralPath $generatorPath -PathType Leaf
+    Test-CheckCondition `
+        -Name 'MATRIX-007 generator exists' `
+        -Condition $generatorExists `
+        -FailureDetail 'The generated matrix inventory script is missing.'
+
+    if (-not $generatorExists) {
+        return
+    }
+
+    $powerShellCommand = Get-PowerShellCommandName
+    $countResult = Invoke-CommandCapture `
+        -Command $powerShellCommand `
+        -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $generatorPath, '-CountOnly')
+    Test-ExitCode `
+        -Name 'MATRIX-007 generator count exits zero' `
+        -Result $countResult `
+        -ExpectedExitCode 0
+
+    [long]$combinationCount = 0
+    $countText = $countResult.Output.Trim()
+    $countParsed = [long]::TryParse($countText, [ref]$combinationCount)
+    Test-CheckCondition `
+        -Name 'MATRIX-007 generator count is positive' `
+        -Condition ($countParsed -and $combinationCount -gt 0) `
+        -FailureDetail "Generator count output was not a positive integer: '$countText'."
+
+    $inventoryResult = Invoke-CommandCapture `
+        -Command $powerShellCommand `
+        -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $generatorPath, '-Limit', '2')
+    Test-ExitCode `
+        -Name 'MATRIX-007 generator sample exits zero' `
+        -Result $inventoryResult `
+        -ExpectedExitCode 0
+
+    $lines = @($inventoryResult.Output -split '\r?\n' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    Test-CheckCondition `
+        -Name 'MATRIX-007 generated line count' `
+        -Condition ($lines.Count -eq 3) `
+        -FailureDetail "Expected one header and two rows, but got $($lines.Count) lines."
+
+    if ($lines.Count -lt 2) {
+        return
+    }
+
+    $rows = @($lines | ConvertFrom-Csv)
+    $expectedColumns = @(
+        'ID',
+        'Platform',
+        'Mode',
+        'Options',
+        'Config',
+        'Prefix',
+        'Tool State',
+        'Installer',
+        'File State',
+        'Expected',
+        'Coverage'
+    )
+    $actualColumns = @($rows[0].PSObject.Properties.Name)
+    $missingColumns = @($expectedColumns | Where-Object { $actualColumns -notcontains $_ })
+    Test-CheckCondition `
+        -Name 'MATRIX-007 generated columns' `
+        -Condition ($missingColumns.Count -eq 0) `
+        -FailureDetail "Generated CSV is missing columns: $($missingColumns -join ', ')."
+
+    $rowShapeValid = $rows.Count -eq 2 -and
+        $rows[0].ID -eq 'MATRIX-GEN-000000000001' -and
+        $rows[1].ID -eq 'MATRIX-GEN-000000000002' -and
+        -not [string]::IsNullOrWhiteSpace($rows[0].Platform) -and
+        -not [string]::IsNullOrWhiteSpace($rows[0].Coverage)
+    Test-CheckCondition `
+        -Name 'MATRIX-007 generated row shape' `
+        -Condition $rowShapeValid `
+        -FailureDetail 'Generated rows do not use stable IDs or required values.'
+
+    $invalidCoverageRows = @($rows | Where-Object { $_.Coverage -notmatch '^not_applicable:.+' })
+    Test-CheckCondition `
+        -Name 'MATRIX-007 generated coverage status' `
+        -Condition ($invalidCoverageRows.Count -eq 0) `
+        -FailureDetail 'Generated rows do not use an accepted placeholder Coverage status.'
 }
 
 function Test-ReferenceIntegrity {
@@ -4735,6 +4821,7 @@ function Invoke-TestPlanCheck {
             { Invoke-StaticCheck }
             { Test-CombinationModel }
             { Test-InventoryTemplate }
+            { Test-GeneratedInventory }
             { Test-ReferenceIntegrity }
             { Test-CanonicalManifestCoverage }
             { Test-SupplyChainVerificationContract }
