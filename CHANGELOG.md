@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.5.0
+
+<!-- markdownlint-disable MD044 -->
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| 6f8be80 | feat: verify installer artifacts | asphyx |
+| 54bf751 | ci: verify shellcheck archive | asphyx |
+| 7288813 | ci: pin validation runtimes | asphyx |
+| 1b05e49 | ci: pin validation tool versions | asphyx |
+| 30cf4b6 | docs: normalize changelog titles | asphyx |
+| 053b2df | docs: sync powershell checks | asphyx |
+| 53e5d45 | ci: lint dependabot yaml | asphyx |
+| df2dc4a | test: add editorconfig gate | asphyx |
+| 4abea93 | docs: comment commit placeholders | asphyx |
+| 48d3cda | test: generate matrix inventory | asphyx |
+| 7b5f212 | ci: monitor workflow dependencies | asphyx |
+| 292f8bf | ci: add linux validation job | asphyx |
+| 79aaada | fix(manifest): validate all keys | asphyx |
+| bb2bacf | chore: add editorconfig rules | asphyx |
+
+<!-- markdownlint-enable MD044 -->
+
 ## v1.4.5
 
 <!-- markdownlint-disable MD044 -->
