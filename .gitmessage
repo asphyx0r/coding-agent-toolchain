@@ -17,7 +17,7 @@
 #   feat(tools): add ruff installer
 #   feat(tools)!: remove legacy shim
 
-<type>[optional scope][optional !]: <description>
+# <type>[optional scope][optional !]: <description>
 
 
 # === Body (optional but recommended) ===
@@ -31,7 +31,7 @@
 #   The previous loader crashed when the config file was empty.
 #   Added guard clauses and default values to ensure stability.
 
-<body>
+# <body>
 
 
 # === Footers (optional) ===
@@ -45,4 +45,4 @@
 #   Fixes: #42
 #   BREAKING CHANGE: remove support for legacy shims
 
-<footers>
+# <footers>
