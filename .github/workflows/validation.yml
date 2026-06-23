@@ -18,6 +18,7 @@ env:
   PYTHON_VERSION: 3.13.1
   SHELLCHECK_VERSION: 0.11.0
   SHELLCHECK_LINUX_X64_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
+  SHELLCHECK_WINDOWS_X64_SHA256: 8a4e35ab0b331c85d73567b12f2a444df187f483e5079ceffa6bda1faa2e740e
   SHFMT_VERSION: v3.13.1
   YAMLLINT_VERSION: 1.38.0
 
@@ -53,13 +54,23 @@ jobs:
           python -m pip install `
             "yamllint==$env:YAMLLINT_VERSION" `
             "codespell==$env:CODESPELL_VERSION"
-          choco install shellcheck --version="$env:SHELLCHECK_VERSION" --yes --no-progress
-          $shellCheckTools = Join-Path $env:ChocolateyInstall "lib\shellcheck\tools"
-          $shellCheckExe = Join-Path $shellCheckTools "shellcheck.exe"
-          if (-not (Test-Path -LiteralPath $shellCheckExe)) {
-            throw "Unable to locate ShellCheck after Chocolatey installation."
+          $shellCheckBase = "https://github.com/koalaman/shellcheck/releases/download"
+          $shellCheckArchive = "shellcheck-v$env:SHELLCHECK_VERSION.zip"
+          $shellCheckWorkdir = Join-Path $env:RUNNER_TEMP "shellcheck-$env:SHELLCHECK_VERSION"
+          $shellCheckPath = Join-Path $shellCheckWorkdir $shellCheckArchive
+          New-Item -ItemType Directory -Force -Path $shellCheckWorkdir | Out-Null
+          curl.exe --fail --location --show-error --output $shellCheckPath `
+            "$shellCheckBase/v$env:SHELLCHECK_VERSION/$shellCheckArchive"
+          $shellCheckHash = Get-FileHash -LiteralPath $shellCheckPath -Algorithm SHA256
+          if ($shellCheckHash.Hash.ToLowerInvariant() -ne $env:SHELLCHECK_WINDOWS_X64_SHA256) {
+            throw "ShellCheck archive checksum mismatch."
           }
-          Add-Content -Path $env:GITHUB_PATH -Value $shellCheckTools
+          Expand-Archive -LiteralPath $shellCheckPath -DestinationPath $shellCheckWorkdir -Force
+          $shellCheckExe = Join-Path $shellCheckWorkdir "shellcheck.exe"
+          if (-not (Test-Path -LiteralPath $shellCheckExe)) {
+            throw "Unable to locate ShellCheck after archive extraction."
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value $shellCheckWorkdir
           $goBin = Join-Path (go env GOPATH) "bin"
           Add-Content -Path $env:GITHUB_PATH -Value $goBin
           go install "mvdan.cc/sh/v3/cmd/shfmt@$env:SHFMT_VERSION"

@@ -293,7 +293,7 @@ editorconfig-checker .
 
 The GitHub Actions validation workflow pins action references to full commit
 SHAs with reviewed version comments and installs explicit validation tool
-versions from npm, pip, Go, Chocolatey, GitHub releases, and PowerShell
+versions from npm, pip, Go, GitHub releases, and PowerShell
 Gallery. Treat that workflow as a pinned repository validation gate, while
 the installer manifest remains a separate bootstrapping trust boundary.
 
