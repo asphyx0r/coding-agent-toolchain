@@ -1219,6 +1219,30 @@ tools:
     Test-NonzeroExitCode -Name "MANIFEST-007 ${Platform}: unsupported key fails" -Result $unsupportedKeyResult
     Test-ResultText -Name "MANIFEST-007 ${Platform}: unsupported key diagnostic" -Result $unsupportedKeyResult -ExpectedText 'Unsupported installer key'
 
+    $otherPlatform = if ($Platform -eq 'windows') { 'linux' } else { 'windows' }
+    $unsupportedOtherPlatformKey = @"
+schema_version: 1
+tools:
+  - id: sample-tool
+    executable: sample-tool
+    installers:
+      ${Platform}:
+        kind: unavailable
+      ${otherPlatform}:
+        kind: unavailable
+        unsupported_key: value
+"@
+    $unsupportedOtherPlatformKeyResult = Invoke-ManifestCase `
+        -Platform $Platform `
+        -ManifestContent $unsupportedOtherPlatformKey
+    Test-NonzeroExitCode `
+        -Name "MANIFEST-007 ${Platform}: unsupported other-platform key fails" `
+        -Result $unsupportedOtherPlatformKeyResult
+    Test-ResultText `
+        -Name "MANIFEST-007 ${Platform}: unsupported other-platform key diagnostic" `
+        -Result $unsupportedOtherPlatformKeyResult `
+        -ExpectedText 'Unsupported installer key'
+
     $unsupportedLine = @'
 schema_version: 1
 tools:

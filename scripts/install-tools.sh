@@ -116,6 +116,19 @@ trim_manifest_value() {
   printf '%s' "${value}"
 }
 
+validate_installer_key() {
+  local key="$1"
+
+  case "${key}" in
+  kind | package | url | file_name | archive_kind | archive_path | owner | repo | asset_pattern) return 0 ;;
+  executable | install_dir_name | bin_path | source_dir | install_args | target_arg_prefix) return 0 ;;
+  *)
+    log_error "Unsupported installer key '${key}'."
+    return 1
+    ;;
+  esac
+}
+
 set_installer_value() {
   local index="$1"
   local key="$2"
@@ -253,6 +266,8 @@ read_manifest() {
       local value
       key="${BASH_REMATCH[1]}"
       value="$(trim_manifest_value "${BASH_REMATCH[2]}")"
+
+      validate_installer_key "${key}" || return 1
 
       if [[ "${current_os}" == "${platform_name}" ]]; then
         set_installer_value "${current_index}" "${key}" "${value}" || return 1
@@ -939,7 +954,7 @@ add_installer_path_entries() {
       return
     elif [[ "${installer_kinds[index]}" == "conda_forge" ]]; then
       bin_path="$(install_directory "${index}")/bin"
-    elif [[ "${installer_kinds[index]}" == "direct_binary" || "${installer_kinds[index]}" == "github_release_asset" ||
+    elif [[ "${installer_kinds[index]}" == "direct_binary" || "${installer_kinds[index]}" == "github_release_asset" || \
       "${installer_kinds[index]}" == "uv_tool" || "${installer_kinds[index]}" == "appimage_extract" ]]; then
       bin_path="$(tool_command_dir "${index}")"
     else
@@ -2562,7 +2577,7 @@ validate_xdg_data_home() {
   }
   xdg_physical="$(normalize_absolute_path_text "${xdg_physical}")"
 
-  if [[ "${xdg_physical}" == "${home_physical}" ||
+  if [[ "${xdg_physical}" == "${home_physical}" || \
     "${xdg_physical}" == "${home_physical}/"* ]]; then
     return 0
   fi
@@ -2765,7 +2780,7 @@ main() {
   local display_value
   for index in "${!tool_ids[@]}"; do
     display_value="${versions[index]}"
-    if [[ ("${statuses[index]}" == "Failed" || "${statuses[index]}" == "Missing" ||
+    if [[ ("${statuses[index]}" == "Failed" || "${statuses[index]}" == "Missing" || \
       "${statuses[index]}" == "Skipped") && -n "${details[index]}" ]]; then
       display_value="${details[index]}"
     fi
