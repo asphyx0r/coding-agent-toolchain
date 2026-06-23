@@ -4,16 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## v1.4.5
 
+<!-- markdownlint-disable MD044 -->
+
 | References | Description | Author(s) |
 | --- | --- | --- |
 | 6a48289 | fix(ci): support Git Bash fixtures | asphyx |
-| 6c83215 | `fix(ci): handle shell python shims` | asphyx |
-| fa66e45 | `fix(ci): use bash python discovery` | asphyx |
-| a3dac00 | `fix(ci): convert git bash python paths` | asphyx |
+| 6c83215 | fix(ci): handle shell python shims | asphyx |
+| fa66e45 | fix(ci): use bash python discovery | asphyx |
+| a3dac00 | fix(ci): convert git bash python paths | asphyx |
 | ae6f74d | fix(ci): stabilize Windows test fixtures | asphyx |
 | 7450f84 | fix(ci): stabilize offline fixtures | asphyx |
 | 1faf57b | fix(ci): stabilize offline test plan | asphyx |
 | 360c861 | style: satisfy CI shfmt layout | asphyx |
+
+<!-- markdownlint-enable MD044 -->
 
 ## v1.4.4
 
@@ -43,12 +47,14 @@ All notable changes to this project will be documented in this file.
 
 ## v1.4.2
 
+<!-- markdownlint-disable MD044 -->
+
 | References | Description | Author(s) |
 | --- | --- | --- |
 | b8d1159 | docs: clarify installer trust boundary | asphyx |
 | dd7a5ab | test: remove stale runtime cleanup | asphyx |
 | 3f43bf3 | docs: fix rust static wording | asphyx |
-| 98e3010 | `test: lint workflow yaml locally` | asphyx |
+| 98e3010 | test: lint workflow yaml locally | asphyx |
 | b2fa293 | ci: document validation trust boundary | asphyx |
 | 3094cef | test: align matrix coverage contract | asphyx |
 | 90dc6f3 | fix(linux): guard xdg data root | asphyx |
@@ -62,6 +68,8 @@ All notable changes to this project will be documented in this file.
 | 4a92826 | fix: resolve prefix paths physically | asphyx |
 | deb8d8e | fix: reject elevated public modes | asphyx |
 | 786f1b2 | chore: enforce commitlint policy | asphyx |
+
+<!-- markdownlint-enable MD044 -->
 
 ## v1.4.1
 
