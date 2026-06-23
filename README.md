@@ -310,7 +310,8 @@ shellcheck scripts/install-tools.sh
 
 $scriptPaths = @(
     ".\scripts\install-tools.ps1",
-    ".\tests\test-plan.ps1"
+    ".\tests\test-plan.ps1",
+    ".\tests\generate-combination-inventory.ps1"
 )
 
 foreach ($scriptPath in $scriptPaths) {

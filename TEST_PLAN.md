@@ -466,7 +466,8 @@ When PowerShell scripts change, also run:
 ```powershell
 $scriptPaths = @(
     ".\scripts\install-tools.ps1",
-    ".\tests\test-plan.ps1"
+    ".\tests\test-plan.ps1",
+    ".\tests\generate-combination-inventory.ps1"
 )
 
 foreach ($scriptPath in $scriptPaths) {
