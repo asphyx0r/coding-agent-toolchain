@@ -54,6 +54,12 @@ jobs:
             "yamllint==$env:YAMLLINT_VERSION" `
             "codespell==$env:CODESPELL_VERSION"
           choco install shellcheck --version="$env:SHELLCHECK_VERSION" --yes --no-progress
+          $shellCheckTools = Join-Path $env:ChocolateyInstall "lib\shellcheck\tools"
+          $shellCheckExe = Join-Path $shellCheckTools "shellcheck.exe"
+          if (-not (Test-Path -LiteralPath $shellCheckExe)) {
+            throw "Unable to locate ShellCheck after Chocolatey installation."
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value $shellCheckTools
           $goBin = Join-Path (go env GOPATH) "bin"
           Add-Content -Path $env:GITHUB_PATH -Value $goBin
           go install "mvdan.cc/sh/v3/cmd/shfmt@$env:SHFMT_VERSION"
