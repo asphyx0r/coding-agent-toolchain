@@ -250,6 +250,8 @@ $SupportedInstallerKeys = @(
     'kind',
     'package',
     'url',
+    'release_tag',
+    'sha256',
     'owner',
     'repo',
     'asset_pattern',
@@ -385,6 +387,74 @@ function Initialize-ToolEntry {
     }
 }
 
+function Test-ArtifactInstallerKind {
+    param(
+        [AllowNull()]
+        [string]$Kind
+    )
+
+    return $Kind -in @(
+        'appimage_extract',
+        'direct_binary',
+        'direct_installer',
+        'github_release_asset',
+        'portable_archive',
+        'source_make'
+    )
+}
+
+function Test-MovingArtifactSelector {
+    param(
+        [AllowNull()]
+        [string]$Value
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return $false
+    }
+
+    return $Value -match '(^|/)(latest|stable|master)(/|$)'
+}
+
+function Assert-InstallerSecurity {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Installer,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ToolId,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Platform
+    )
+
+    if (-not $Installer.Contains('kind') -or -not (Test-ArtifactInstallerKind -Kind $Installer['kind'])) {
+        return
+    }
+
+    if (-not $Installer.Contains('sha256') -or [string]::IsNullOrWhiteSpace($Installer['sha256'])) {
+        throw "Tool '$ToolId' $Platform installer kind '$($Installer['kind'])' must define sha256 for schema_version 2."
+    }
+
+    if ($Installer['sha256'] -notmatch '^[0-9a-fA-F]{64}$') {
+        throw "Tool '$ToolId' $Platform installer defines invalid sha256 '$($Installer['sha256'])'."
+    }
+
+    if ($Installer.Contains('url') -and (Test-MovingArtifactSelector -Value $Installer['url'])) {
+        throw "Tool '$ToolId' $Platform installer URL must not use latest, stable, or master for schema_version 2."
+    }
+
+    if ($Installer['kind'] -eq 'github_release_asset') {
+        if (-not $Installer.Contains('release_tag') -or [string]::IsNullOrWhiteSpace($Installer['release_tag'])) {
+            throw "Tool '$ToolId' $Platform installer must define release_tag for schema_version 2."
+        }
+
+        if (Test-MovingArtifactSelector -Value $Installer['release_tag']) {
+            throw "Tool '$ToolId' $Platform installer release_tag must not be latest, stable, or master."
+        }
+    }
+}
+
 function Read-ToolManifest {
     param(
         [Parameter(Mandatory = $true)]
@@ -461,7 +531,7 @@ function Read-ToolManifest {
             continue
         }
 
-        if ($line -match '^      ([a-z_]+):\s*(.+)$' -and $currentSection -eq 'installers') {
+        if ($line -match '^      ([a-z0-9_]+):\s*(.+)$' -and $currentSection -eq 'installers') {
             throw "Installer property without platform at manifest line $lineNumber."
         }
 
@@ -472,7 +542,7 @@ function Read-ToolManifest {
             continue
         }
 
-        if ($line -match '^        ([a-z_]+):\s*(.+)$' -and $currentSection -eq 'installer') {
+        if ($line -match '^        ([a-z0-9_]+):\s*(.+)$' -and $currentSection -eq 'installer') {
             if ([string]::IsNullOrWhiteSpace($currentOs)) {
                 throw "Installer property without platform at manifest line $lineNumber."
             }
@@ -489,8 +559,8 @@ function Read-ToolManifest {
         throw "Unsupported manifest line ${lineNumber}: $line"
     }
 
-    if ($schemaVersion -ne '1') {
-        throw "Unsupported schema_version '$schemaVersion'. Expected '1'."
+    if ($schemaVersion -notin @('1', '2')) {
+        throw "Unsupported schema_version '$schemaVersion'. Expected '1' or '2'."
     }
 
     if ($tools.Count -eq 0) {
@@ -509,6 +579,15 @@ function Read-ToolManifest {
 
         if ($tool['VersionCheck'] -notin @('command', 'command_available')) {
             throw "Tool '$($tool['Id'])' defines unsupported version_check '$($tool['VersionCheck'])'."
+        }
+
+        if ($schemaVersion -eq '2') {
+            foreach ($platformInstaller in $tool['Installers'].GetEnumerator()) {
+                Assert-InstallerSecurity `
+                    -Installer $platformInstaller.Value `
+                    -ToolId $tool['Id'] `
+                    -Platform $platformInstaller.Key
+            }
         }
 
         if (-not $tool['Installers'].Contains($PlatformName)) {
@@ -1133,8 +1212,14 @@ function Get-GitHubReleaseAssetUrl {
     $owner = Get-RequiredInstallerValue -Installer $Installer -Name 'owner' -ToolId $ToolId
     $repo = Get-RequiredInstallerValue -Installer $Installer -Name 'repo' -ToolId $ToolId
     $assetPattern = Get-RequiredInstallerValue -Installer $Installer -Name 'asset_pattern' -ToolId $ToolId
-    $releaseUrl = "https://api.github.com/repos/$owner/$repo/releases/latest"
-    Write-TraceDetail "Fetching latest GitHub release metadata from '$releaseUrl'."
+    if ($Installer.Contains('release_tag') -and -not [string]::IsNullOrWhiteSpace($Installer['release_tag'])) {
+        $releaseTag = $Installer['release_tag']
+        $releaseUrl = "https://api.github.com/repos/$owner/$repo/releases/tags/$releaseTag"
+        Write-TraceDetail "Fetching GitHub release metadata for '$releaseTag' from '$releaseUrl'."
+    } else {
+        $releaseUrl = "https://api.github.com/repos/$owner/$repo/releases/latest"
+        Write-TraceDetail "Fetching latest GitHub release metadata from '$releaseUrl'."
+    }
     $release = Invoke-RestMethod -Uri $releaseUrl -Headers @{ Accept = 'application/vnd.github+json' }
     $asset = @($release.assets | Where-Object { $_.name -match $assetPattern } | Select-Object -First 1)
 
@@ -1161,6 +1246,31 @@ function Get-InstallerDownloadUrl {
     }
 
     return Get-GitHubReleaseAssetUrl -Installer $Installer -ToolId $ToolId
+}
+
+function Assert-InstallerArtifactHash {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Installer,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ToolId
+    )
+
+    if (-not $Installer.Contains('sha256') -or [string]::IsNullOrWhiteSpace($Installer['sha256'])) {
+        return
+    }
+
+    $expectedHash = $Installer['sha256'].ToLowerInvariant()
+    $actualHash = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualHash -ne $expectedHash) {
+        throw "SHA256 mismatch for '$ToolId'. Expected '$expectedHash' but got '$actualHash'."
+    }
+
+    Write-TraceDetail "Verified SHA256 for '$ToolId': $actualHash"
 }
 
 function Get-ArchiveDownloadFileName {
@@ -1650,6 +1760,7 @@ function Install-DirectBinaryTool {
         try {
             Write-TraceDetail "Downloading plain binary file for '$($Tool['Id'])' to '$tempTargetPath'."
             Save-DownloadFile -Url $url -Path $tempTargetPath
+            Assert-InstallerArtifactHash -Installer $Installer -Path $tempTargetPath -ToolId $Tool['Id']
             Write-TraceDetail "Publishing staged binary for '$($Tool['Id'])' to '$targetPath'."
             Move-Item -LiteralPath $tempTargetPath -Destination $targetPath -Force -ErrorAction Stop
             Publish-ToolCommand -Tool $Tool -Installer $Installer -TargetPath $targetPath
@@ -1672,6 +1783,7 @@ function Install-DirectBinaryTool {
         Confirm-Directory -Path $tempRoot
         Write-TraceDetail "Downloading archive for '$($Tool['Id'])' to '$archivePath'."
         Save-DownloadFile -Url $url -Path $archivePath
+        Assert-InstallerArtifactHash -Installer $Installer -Path $archivePath -ToolId $Tool['Id']
         $expandArguments = @{
             Installer = $Installer
             ArchivePath = $archivePath
@@ -1731,6 +1843,7 @@ function Install-PortableArchiveTool {
         Confirm-Directory -Path $tempRoot
         Write-TraceDetail "Downloading portable archive for '$($Tool['Id'])' from '$url' to '$archivePath'."
         Save-DownloadFile -Url $url -Path $archivePath
+        Assert-InstallerArtifactHash -Installer $Installer -Path $archivePath -ToolId $Tool['Id']
         $expandArguments = @{
             Installer = $Installer
             ArchivePath = $archivePath
@@ -1809,6 +1922,7 @@ function Install-DirectInstallerTool {
         Confirm-Directory -Path $installDirectory
         Write-TraceDetail "Downloading installer for '$($Tool['Id'])' from '$url' to '$installerPath'."
         Save-DownloadFile -Url $url -Path $installerPath
+        Assert-InstallerArtifactHash -Installer $Installer -Path $installerPath -ToolId $Tool['Id']
 
         $arguments = [System.Collections.Generic.List[string]]::new()
         if ($Installer.Contains('install_args') -and -not [string]::IsNullOrWhiteSpace($Installer['install_args'])) {

@@ -138,6 +138,8 @@ not overlap.
 | ID | Scope | Scenario | Expected result |
 | --- | --- | --- | --- |
 | `SUPPLY-001` | Installer trust | Cross-check every canonical installer kind against the documented verification strategy table. | Every canonical installer kind has one `trusted_upstream`, `checksum`, or `signature` strategy. |
+| `SUPPLY-002` | Artifact checksums | Cross-check every canonical direct artifact installer against manifest integrity fields. | Every direct artifact installer has a fixed URL or `release_tag` plus a valid SHA256 checksum. |
+| `SUPPLY-003` | Moving selectors | Scan canonical direct artifact installers for moving release selectors. | No schema `2` direct artifact URL or `release_tag` uses `latest`, `stable`, or `master`. |
 
 ### Installer Verification Strategies
 
@@ -145,16 +147,16 @@ Accepted strategies are `trusted_upstream`, `checksum`, and `signature`.
 
 | Installer kind | Verification strategy |
 | --- | --- |
-| `appimage_extract` | `trusted_upstream` |
+| `appimage_extract` | `checksum` |
 | `conda_forge` | `trusted_upstream` |
-| `direct_binary` | `trusted_upstream` |
-| `direct_installer` | `trusted_upstream` |
-| `github_release_asset` | `trusted_upstream` |
+| `direct_binary` | `checksum` |
+| `direct_installer` | `checksum` |
+| `github_release_asset` | `checksum` |
 | `npm_global` | `trusted_upstream` |
 | `pip` | `trusted_upstream` |
-| `portable_archive` | `trusted_upstream` |
+| `portable_archive` | `checksum` |
 | `powershell_gallery` | `trusted_upstream` |
-| `source_make` | `trusted_upstream` |
+| `source_make` | `checksum` |
 
 ### Safety Boundary Tests
 

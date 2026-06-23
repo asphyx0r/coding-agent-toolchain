@@ -238,7 +238,9 @@ installer kinds instead of embedding arbitrary shell commands.
 
 The manifest schema is intentionally small:
 
-- `schema_version` must be `1`.
+- `schema_version` must be `1` or `2`. The canonical manifest uses
+  schema `2` for artifact checksum enforcement while schema `1` remains
+  accepted for compatible custom manifests.
 - `tools` is an ordered list of tool definitions.
 - each tool in the canonical manifest defines `id`, `executable`, and
   `installers`.
@@ -256,22 +258,20 @@ Supported installer kinds are `winget`, `npm_global`, `chocolatey`, `brew`,
 `direct_binary`, `portable_archive`, `appimage_extract`,
 `github_release_asset`, `direct_installer`, and `source_make`.
 
-Common installer fields include `package`, `url`, `owner`, `repo`,
-`asset_pattern`, `file_name`, `archive_kind`, `archive_path`, `executable`,
-`install_dir_name`, `bin_path`, `source_dir`, `install_args`, and
-`target_arg_prefix`. Unsupported installer keys are rejected by the scripts.
+Common installer fields include `package`, `url`, `release_tag`, `sha256`,
+`owner`, `repo`, `asset_pattern`, `file_name`, `archive_kind`,
+`archive_path`, `executable`, `install_dir_name`, `bin_path`,
+`source_dir`, `install_args`, and `target_arg_prefix`. Unsupported
+installer keys are rejected by the scripts.
 
-The manifest intentionally uses current upstream sources for some installers,
-including `latest`, `stable`, and latest GitHub release assets. This project
-optimizes for bootstrapping current validation tools, not for reproducible
-pinned tool versions.
+For schema `2`, installer kinds that download direct artifacts must pin fixed
+release URLs or `release_tag` values and declare a SHA256 checksum. The
+Windows and Linux installers verify that checksum immediately after download
+and before extraction, execution, or publication.
 
-These moving upstream sources are an explicit bootstrapping trust boundary and
-an accepted repository risk tracked through the installer verification strategy
-table in `TEST_PLAN.md`. The project does not currently verify downloaded
-checksums or signatures, so users should treat upstream package managers,
-release assets, and direct download URLs as trusted inputs when running the
-installers.
+Package-manager installers still resolve upstream package channels. Treat those
+package managers as trusted inputs when running the installers; the direct
+artifact downloads controlled by the canonical manifest are checksum verified.
 
 ## Verification
 

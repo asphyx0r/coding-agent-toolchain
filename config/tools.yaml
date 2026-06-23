@@ -1,4 +1,4 @@
-schema_version: 1
+schema_version: 2
 tools:
   - id: yamllint
     executable: yamllint
@@ -19,11 +19,13 @@ tools:
     installers:
       windows:
         kind: direct_binary
-        url: 'https://github.com/mikefarah/yq/releases/latest/download/yq_windows_amd64.exe'
+        url: 'https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_windows_amd64.exe'
+        sha256: e279bc506a452eeafcdf364f91a025455e402a8001169083caf01f4b64a544e2
         file_name: yq.exe
       linux:
         kind: direct_binary
-        url: 'https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64'
+        url: 'https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_linux_amd64'
+        sha256: fa52a4e758c63d38299163fbdd1edfb4c4963247918bf9c1c5d31d84789eded4
         file_name: yq
 
   - id: jq
@@ -33,11 +35,13 @@ tools:
     installers:
       windows:
         kind: direct_binary
-        url: 'https://github.com/jqlang/jq/releases/latest/download/jq-windows-amd64.exe'
+        url: 'https://github.com/jqlang/jq/releases/download/jq-1.8.2/jq-windows-amd64.exe'
+        sha256: a6fc67fedaf9128a3309a1e2ebb8b986aeccf70122ee46d2cb4849e423f0c627
         file_name: jq.exe
       linux:
         kind: direct_binary
-        url: 'https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64'
+        url: 'https://github.com/jqlang/jq/releases/download/jq-1.8.2/jq-linux-amd64'
+        sha256: b1c22172dd303f3be49e935aa56aa48a8b7a46e0bc838b4997d3bb451495870f
         file_name: jq
 
   - id: shfmt
@@ -47,11 +51,13 @@ tools:
     installers:
       windows:
         kind: direct_binary
-        url: 'https://github.com/patrickvane/shfmt/releases/download/master/shfmt_windows_amd64.exe'
+        url: 'https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_windows_amd64.exe'
+        sha256: 60cd368533d0ad73fa86d93d5bbf95ef40587245ce684ed138c1b31557b5fe97
         file_name: shfmt.exe
       linux:
         kind: direct_binary
-        url: 'https://github.com/patrickvane/shfmt/releases/download/master/shfmt_linux_amd64'
+        url: 'https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_amd64'
+        sha256: fb096c5d1ac6beabbdbaa2874d025badb03ee07929f0c9ff67563ce8c75398b1
         file_name: shfmt
 
   - id: markdownlint-cli2
@@ -85,6 +91,8 @@ tools:
     installers:
       windows:
         kind: portable_archive
+        release_tag: 7.1.2-26
+        sha256: 3f78bac9a941f6c18f332f575145f52d744e19fa781e5ab7d2fd6c0890f0bb18
         owner: ImageMagick
         repo: ImageMagick
         asset_pattern: 'ImageMagick-[0-9.]+-[0-9]+-portable-Q16-x64[.]7z'
@@ -94,6 +102,8 @@ tools:
         archive_kind: seven_zip
       linux:
         kind: appimage_extract
+        release_tag: 7.1.2-26
+        sha256: 6366d353b81871929a653ad81158e805f3611d1be7836f2490b6afc38b64c92f
         owner: ImageMagick
         repo: ImageMagick
         asset_pattern: 'ImageMagick-.*-gcc-x86_64[.]AppImage'
@@ -106,6 +116,8 @@ tools:
     installers:
       windows:
         kind: direct_installer
+        release_tag: gs10071
+        sha256: 3a4c28d0aac47aa7cccd35a5932c55110376e9dbd966898dde388b7faba444a4
         owner: ArtifexSoftware
         repo: ghostpdl-downloads
         asset_pattern: 'gs[0-9]+w64[.]exe'
@@ -116,6 +128,8 @@ tools:
         bin_path: bin
       linux:
         kind: source_make
+        release_tag: gs10071
+        sha256: 1cdb766de8db8f1e589c817f09c5855ea5f65dfc8540e465a69ac14c18416025
         owner: ArtifexSoftware
         repo: ghostpdl-downloads
         asset_pattern: 'ghostscript-[0-9.]+[.]tar[.]xz'
@@ -131,16 +145,18 @@ tools:
     installers:
       windows:
         kind: direct_binary
-        url: 'https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.zip'
+        url: 'https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.zip'
+        sha256: 8a4e35ab0b331c85d73567b12f2a444df187f483e5079ceffa6bda1faa2e740e
         file_name: shellcheck.exe
         archive_kind: zip
         archive_path: shellcheck.exe
       linux:
         kind: direct_binary
-        url: 'https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.linux.x86_64.tar.xz'
+        url: 'https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz'
+        sha256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
         file_name: shellcheck
         archive_kind: tar_xz
-        archive_path: shellcheck-stable/shellcheck
+        archive_path: shellcheck-v0.11.0/shellcheck
 
   - id: sqlfluff
     executable: sqlfluff
@@ -173,6 +189,8 @@ tools:
     installers:
       windows:
         kind: github_release_asset
+        release_tag: v8.30.1
+        sha256: d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e
         owner: gitleaks
         repo: gitleaks
         asset_pattern: 'gitleaks_[0-9.]+_windows_x64[.]zip'
@@ -180,6 +198,8 @@ tools:
         archive_kind: zip
       linux:
         kind: github_release_asset
+        release_tag: v8.30.1
+        sha256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
         owner: gitleaks
         repo: gitleaks
         asset_pattern: 'gitleaks_[0-9.]+_linux_x64[.]tar[.]gz'
@@ -193,6 +213,8 @@ tools:
     installers:
       windows:
         kind: github_release_asset
+        release_tag: v1.5.0
+        sha256: 210852dc72b037422fafb1d053209b352d271300473c7dafca2560cef68eba15
         owner: betterleaks
         repo: betterleaks
         asset_pattern: 'betterleaks_[0-9.]+_windows_x64[.]zip'
@@ -200,6 +222,8 @@ tools:
         archive_kind: zip
       linux:
         kind: github_release_asset
+        release_tag: v1.5.0
+        sha256: b883e8c61a3a14c90ff46a08c203cf88fe340ed88251d4c049db5530ec0ac54b
         owner: betterleaks
         repo: betterleaks
         asset_pattern: 'betterleaks_[0-9.]+_linux_x64[.]tar[.]gz'
@@ -213,6 +237,8 @@ tools:
     installers:
       windows:
         kind: github_release_asset
+        release_tag: v2.95.0
+        sha256: 19a7154161ada9cfaa9e57edb752ecc679b75c391a62e4f7b586eea1df30b5bb
         owner: cli
         repo: cli
         asset_pattern: 'gh_[0-9.]+_windows_amd64[.]zip'
@@ -220,6 +246,8 @@ tools:
         archive_kind: zip
       linux:
         kind: github_release_asset
+        release_tag: v2.95.0
+        sha256: 25d1e4729e8808c9ed3d613e96ebd3f3e44446f2d368c89d878a71a36ddb3d8c
         owner: cli
         repo: cli
         asset_pattern: 'gh_[0-9.]+_linux_amd64[.]tar[.]gz'
@@ -255,6 +283,8 @@ tools:
     installers:
       windows:
         kind: portable_archive
+        release_tag: v2.335.1
+        sha256: eb65c95277af42bcf3778a799c41359d224ba2a67b4de26b7cea1729b09c803d
         owner: actions
         repo: runner
         asset_pattern: 'actions-runner-win-x64-[0-9.]+[.]zip'
@@ -265,6 +295,8 @@ tools:
         bin_path: bin
       linux:
         kind: portable_archive
+        release_tag: v2.335.1
+        sha256: 4ef2f25285f0ae4477f1fe1e346db76d2f3ebf03824e2ddd1973a2819bf6c8cf
         owner: actions
         repo: runner
         asset_pattern: 'actions-runner-linux-x64-[0-9.]+[.]tar[.]gz'
@@ -281,6 +313,8 @@ tools:
     installers:
       windows:
         kind: github_release_asset
+        release_tag: v1.7.12
+        sha256: 6e7241b51e6817ea6a047693d8e6fed13b31819c9a0dd6c5a726e1592d22f6e9
         owner: rhysd
         repo: actionlint
         asset_pattern: 'actionlint_[0-9.]+_windows_amd64[.]zip'
@@ -288,6 +322,8 @@ tools:
         archive_kind: zip
       linux:
         kind: github_release_asset
+        release_tag: v1.7.12
+        sha256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
         owner: rhysd
         repo: actionlint
         asset_pattern: 'actionlint_[0-9.]+_linux_amd64[.]tar[.]gz'
@@ -313,6 +349,8 @@ tools:
     installers:
       windows:
         kind: github_release_asset
+        release_tag: v3.7.0
+        sha256: 9c6b8a4cd7ccc5826ab96d34c460f37ab18b9cb50607d3ee9eb743fc47335da7
         owner: editorconfig-checker
         repo: editorconfig-checker
         asset_pattern: 'ec-windows-amd64[.]zip'
@@ -321,6 +359,8 @@ tools:
         archive_path: bin/ec-windows-amd64.exe
       linux:
         kind: github_release_asset
+        release_tag: v3.7.0
+        sha256: 9a0c3a5170bffa24f9e5f0def53d285777b6c5284a95367f40d399d0b76af552
         owner: editorconfig-checker
         repo: editorconfig-checker
         asset_pattern: 'ec-linux-amd64[.]tar[.]gz'

@@ -41,6 +41,8 @@ tool_version_args=()
 installer_kinds=()
 installer_packages=()
 installer_urls=()
+installer_release_tags=()
+installer_sha256s=()
 installer_file_names=()
 installer_archive_kinds=()
 installer_archive_paths=()
@@ -120,13 +122,69 @@ validate_installer_key() {
   local key="$1"
 
   case "${key}" in
-  kind | package | url | file_name | archive_kind | archive_path | owner | repo | asset_pattern) return 0 ;;
+  kind | package | url | release_tag | sha256 | file_name | archive_kind) return 0 ;;
+  archive_path | owner | repo | asset_pattern) return 0 ;;
   executable | install_dir_name | bin_path | source_dir | install_args | target_arg_prefix) return 0 ;;
   *)
     log_error "Unsupported installer key '${key}'."
     return 1
     ;;
   esac
+}
+
+artifact_installer_requires_sha256() {
+  case "$1" in
+  appimage_extract | direct_binary | direct_installer | github_release_asset | portable_archive | source_make) return 0 ;;
+  *) return 1 ;;
+  esac
+}
+
+is_moving_artifact_selector() {
+  local value="$1"
+  [[ "${value}" =~ (^|/)(latest|stable|master)(/|$) ]]
+}
+
+validate_manifest_installer_security() {
+  local schema_version="$1"
+  local tool_id="$2"
+  local os_name="$3"
+  local kind="$4"
+  local url="$5"
+  local release_tag="$6"
+  local sha256="$7"
+
+  if [[ "${schema_version}" != "2" || -z "${os_name}" ]]; then
+    return 0
+  fi
+
+  if ! artifact_installer_requires_sha256 "${kind}"; then
+    return 0
+  fi
+
+  if [[ -z "${sha256}" ]]; then
+    log_error "Tool ${tool_id} ${os_name} installer kind ${kind} must define sha256 for schema_version 2."
+    return 1
+  fi
+
+  if ! [[ "${sha256}" =~ ^[0-9a-fA-F]{64}$ ]]; then
+    log_error "Tool ${tool_id} ${os_name} installer defines invalid sha256 ${sha256}."
+    return 1
+  fi
+
+  if [[ -n "${url}" ]] && is_moving_artifact_selector "${url}"; then
+    log_error "Tool ${tool_id} ${os_name} installer URL must not use latest, stable, or master for schema_version 2."
+    return 1
+  fi
+
+  if [[ -n "${release_tag}" ]]; then
+    if is_moving_artifact_selector "${release_tag}"; then
+      log_error "Tool ${tool_id} ${os_name} installer release_tag must not be latest, stable, or master."
+      return 1
+    fi
+  elif [[ -z "${url}" ]]; then
+    log_error "Tool ${tool_id} ${os_name} installer must define release_tag for schema_version 2."
+    return 1
+  fi
 }
 
 set_installer_value() {
@@ -138,6 +196,8 @@ set_installer_value() {
   kind) installer_kinds[index]="${value}" ;;
   package) installer_packages[index]="${value}" ;;
   url) installer_urls[index]="${value}" ;;
+  release_tag) installer_release_tags[index]="${value}" ;;
+  sha256) installer_sha256s[index]="${value}" ;;
   file_name) installer_file_names[index]="${value}" ;;
   archive_kind) installer_archive_kinds[index]="${value}" ;;
   archive_path) installer_archive_paths[index]="${value}" ;;
@@ -163,6 +223,10 @@ read_manifest() {
   local current_index=-1
   local current_section=""
   local current_os=""
+  local current_block_kind=""
+  local current_block_url=""
+  local current_block_release_tag=""
+  local current_block_sha256=""
 
   if [[ ! -f "${path}" ]]; then
     log_error "Configuration file not found: ${path}"
@@ -189,8 +253,20 @@ read_manifest() {
     fi
 
     if [[ "${line}" =~ ^[[:space:]][[:space:]]-[[:space:]]id:[[:space:]]*(.+)$ ]]; then
+      local matched_tool_id
+      matched_tool_id="${line#  - id:}"
+      matched_tool_id="$(trim_manifest_value "${matched_tool_id}")"
+      if ((current_index >= 0)) && [[ "${current_section}" == "installer" ]]; then
+        if ! validate_manifest_installer_security "${schema_version}" "${tool_ids[current_index]}" "${current_os}" "${current_block_kind}" "${current_block_url}" "${current_block_release_tag}" "${current_block_sha256}"; then
+          return 1
+        fi
+      fi
+      current_block_kind=""
+      current_block_url=""
+      current_block_release_tag=""
+      current_block_sha256=""
       current_index=$((${#tool_ids[@]}))
-      tool_ids[current_index]="$(trim_manifest_value "${BASH_REMATCH[1]}")"
+      tool_ids[current_index]="${matched_tool_id}"
       log_verbose "Reading manifest entry for tool '${tool_ids[current_index]}'."
       tool_executables[current_index]=""
       tool_version_checks[current_index]="command"
@@ -198,6 +274,8 @@ read_manifest() {
       installer_kinds[current_index]=""
       installer_packages[current_index]=""
       installer_urls[current_index]=""
+      installer_release_tags[current_index]=""
+      installer_sha256s[current_index]=""
       installer_file_names[current_index]=""
       installer_archive_kinds[current_index]=""
       installer_archive_paths[current_index]=""
@@ -250,22 +328,41 @@ read_manifest() {
       continue
     fi
 
-    if [[ "${line}" =~ ^[[:space:]]{6}([a-z_]+):[[:space:]]*(.+)$ && "${current_section}" == "installers" ]]; then
+    if [[ "${line}" =~ ^[[:space:]]{6}([a-z0-9_]+):[[:space:]]*(.+)$ && "${current_section}" == "installers" ]]; then
       log_error "Installer property without platform at manifest line ${line_number}."
       return 1
     fi
 
     if [[ "${line}" =~ ^[[:space:]]{6}(windows|linux):[[:space:]]*$ ]]; then
-      current_os="${BASH_REMATCH[1]}"
+      if [[ "${current_section}" == "installer" ]]; then
+        if ! validate_manifest_installer_security "${schema_version}" "${tool_ids[current_index]}" "${current_os}" "${current_block_kind}" "${current_block_url}" "${current_block_release_tag}" "${current_block_sha256}"; then
+          return 1
+        fi
+      fi
+      current_block_kind=""
+      current_block_url=""
+      current_block_release_tag=""
+      current_block_sha256=""
+      current_os="${line#      }"
+      current_os="${current_os%%:*}"
       current_section="installer"
       continue
     fi
 
-    if [[ "${line}" =~ ^[[:space:]]{8}([a-z_]+):[[:space:]]*(.+)$ && "${current_section}" == "installer" ]]; then
+    if [[ "${line}" =~ ^[[:space:]]{8}([a-z0-9_]+):[[:space:]]*(.+)$ && "${current_section}" == "installer" ]]; then
       local key
       local value
-      key="${BASH_REMATCH[1]}"
-      value="$(trim_manifest_value "${BASH_REMATCH[2]}")"
+      key="${line#        }"
+      key="${key%%:*}"
+      value="${line#*:}"
+      value="$(trim_manifest_value "${value}")"
+
+      case "${key}" in
+      kind) current_block_kind="${value}" ;;
+      url) current_block_url="${value}" ;;
+      release_tag) current_block_release_tag="${value}" ;;
+      sha256) current_block_sha256="${value}" ;;
+      esac
 
       validate_installer_key "${key}" || return 1
 
@@ -279,8 +376,15 @@ read_manifest() {
     return 1
   done <"${path}"
 
-  if [[ "${schema_version}" != "1" ]]; then
-    log_error "Unsupported schema_version '${schema_version}'. Expected '1'."
+  if ((current_index >= 0)) && [[ "${current_section}" == "installer" ]]; then
+    # final installer security validation for the last platform block
+    if ! validate_manifest_installer_security "${schema_version}" "${tool_ids[current_index]}" "${current_os}" "${current_block_kind}" "${current_block_url}" "${current_block_release_tag}" "${current_block_sha256}"; then
+      return 1
+    fi
+  fi
+
+  if [[ "${schema_version}" != "1" && "${schema_version}" != "2" ]]; then
+    log_error "Unsupported schema_version '${schema_version}'. Expected '1' or '2'."
     return 1
   fi
 
@@ -1012,6 +1116,49 @@ download_file() {
   return 1
 }
 
+sha256_file() {
+  local file_path="$1"
+  local python_command_path=""
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "${file_path}" | awk '{ print $1 }'
+    return
+  fi
+
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "${file_path}" | awk '{ print $1 }'
+    return
+  fi
+
+  if python_command_path="$(python_command 2>/dev/null)"; then
+    CAT_HASH_TARGET="${file_path}" "${python_command_path}" -c 'import hashlib, os; p=os.environ["CAT_HASH_TARGET"]; h=hashlib.sha256(); f=open(p,"rb"); [h.update(b) for b in iter(lambda:f.read(1048576), b"")]; print(h.hexdigest())'
+    return
+  fi
+
+  log_error "Verifying SHA256 requires sha256sum, shasum, or Python."
+  return 1
+}
+
+verify_installer_artifact_hash() {
+  local index="$1"
+  local file_path="$2"
+  local expected
+  local actual
+
+  if [[ -z "${installer_sha256s[index]}" ]]; then
+    return 0
+  fi
+
+  expected="$(printf '%s' "${installer_sha256s[index]}" | tr 'A-F' 'a-f')"
+  actual="$(sha256_file "${file_path}" | tr 'A-F' 'a-f')" || return 1
+  if [[ "${actual}" != "${expected}" ]]; then
+    log_error "SHA256 mismatch for ${tool_ids[index]}. Expected ${expected} but got ${actual}."
+    return 1
+  fi
+
+  log_verbose "Verified SHA256 for ${tool_ids[index]}: ${actual}"
+}
+
 prepare_user_paths() {
   local index="${1:-0}"
   local bin_dir
@@ -1040,8 +1187,13 @@ github_release_asset_url() {
   owner="$(require_installer_value "${installer_owners[index]}" "owner" "${tool_ids[index]}")"
   repo="$(require_installer_value "${installer_repos[index]}" "repo" "${tool_ids[index]}")"
   pattern="$(require_installer_value "${installer_asset_patterns[index]}" "asset_pattern" "${tool_ids[index]}")"
-  release_url="https://api.github.com/repos/${owner}/${repo}/releases/latest"
-  log_verbose "Fetching latest GitHub release metadata from '${release_url}'."
+  if [[ -n "${installer_release_tags[index]}" ]]; then
+    release_url="https://api.github.com/repos/${owner}/${repo}/releases/tags/${installer_release_tags[index]}"
+    log_verbose "Fetching GitHub release metadata for tag ${installer_release_tags[index]} from ${release_url}."
+  else
+    release_url="https://api.github.com/repos/${owner}/${repo}/releases/latest"
+    log_verbose "Fetching latest GitHub release metadata from ${release_url}."
+  fi
 
   release_file="$(mktemp)" || return 1
   if ! download_file "${release_url}" "${release_file}"; then
@@ -1724,6 +1876,10 @@ install_direct_binary_tool() {
       rm -rf -- "${temp_dir}"
       return 1
     fi
+    if ! verify_installer_artifact_hash "${index}" "${download_path}"; then
+      rm -rf -- "${temp_dir}"
+      return 1
+    fi
     log_verbose "Running command: install -m 0755 ${download_path} ${target_path}"
     if ! install -m 0755 "${download_path}" "${target_path}"; then
       rm -rf -- "${temp_dir}"
@@ -1732,6 +1888,10 @@ install_direct_binary_tool() {
   else
     download_path="${temp_dir}/download"
     if ! download_file "${url}" "${download_path}"; then
+      rm -rf -- "${temp_dir}"
+      return 1
+    fi
+    if ! verify_installer_artifact_hash "${index}" "${download_path}"; then
       rm -rf -- "${temp_dir}"
       return 1
     fi
@@ -1783,6 +1943,10 @@ install_portable_archive_tool() {
   ensure_directory "${extract_dir}"
 
   if ! download_file "${url}" "${download_path}"; then
+    rm -rf -- "${temp_dir}"
+    return 1
+  fi
+  if ! verify_installer_artifact_hash "${index}" "${download_path}"; then
     rm -rf -- "${temp_dir}"
     return 1
   fi
@@ -1847,6 +2011,10 @@ install_appimage_extract_tool() {
   temp_dir="$(mktemp -d)" || return 1
   appimage_path="${temp_dir}/tool.AppImage"
   if ! download_file "${url}" "${appimage_path}"; then
+    rm -rf -- "${temp_dir}"
+    return 1
+  fi
+  if ! verify_installer_artifact_hash "${index}" "${appimage_path}"; then
     rm -rf -- "${temp_dir}"
     return 1
   fi
@@ -1945,6 +2113,10 @@ install_source_make_tool() {
   log_verbose "Created temporary directory '${temp_dir}'."
   download_path="${temp_dir}/source.tar.xz"
   if ! download_file "${url}" "${download_path}"; then
+    rm -rf -- "${temp_dir}"
+    return 1
+  fi
+  if ! verify_installer_artifact_hash "${index}" "${download_path}"; then
     rm -rf -- "${temp_dir}"
     return 1
   fi

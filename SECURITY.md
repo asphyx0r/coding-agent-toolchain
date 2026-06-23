@@ -7,27 +7,20 @@ release note states otherwise.
 
 ## Installer Supply Chain Trust Boundary
 
-Installers declared in `config/tools.yaml` may resolve moving upstream sources,
-including package-manager channels, `latest` or `stable` labels, GitHub release
-assets, direct URLs, and source build fallbacks. The installer scripts do not
-currently pin those upstream artifacts with checksums or signatures.
+Installers declared in `config/tools.yaml` use schema `2` for canonical
+direct artifacts. Those artifact entries pin fixed release URLs or
+`release_tag` values and include SHA256 checksums that the Windows and Linux
+installers verify immediately after download.
 
-The local test plan still requires each canonical installer kind to declare a
-verification strategy. The `trusted_upstream` strategy records an explicit
-trust decision for moving sources until checksum or signature verification is
-implemented for that kind.
+Package-manager channels such as `pip`, `npm_global`, `powershell_gallery`,
+and `conda_forge` still rely on their upstream package managers. The
+`trusted_upstream` strategy records that explicit trust decision until a
+stronger package-manager verification model is added for that kind.
 
-This is an accepted bootstrapping risk for the current repository scope, not a
-guarantee that upstream artifacts are stable or authenticated. Track
-remediation through the installer verification strategy table and update the
-manifest schema plus installer enforcement before marking any kind as
-`checksum` or `signature`.
-
-Treat the manifest sources and the upstream package managers or release assets
-they reference as trusted inputs before running an install. This boundary is
-separate from the GitHub Actions validation workflow trust boundary documented
-in `README.md`; CI dependency choices do not make installer downloads
-reproducible or verified.
+Treat package managers as trusted inputs before running an install. Direct
+release assets and direct download URLs in the canonical manifest are checksum
+verified; that installer trust boundary remains separate from the GitHub
+Actions validation workflow trust boundary documented in `README.md`.
 
 ## Reporting a Vulnerability
 

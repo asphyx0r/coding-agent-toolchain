@@ -44,6 +44,26 @@ function Get-RepositoryText {
     return [IO.File]::ReadAllText((Get-RepositoryPath -RelativePath $RelativePath))
 }
 
+function Get-LinuxFileSha256 {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $bashCommand = Get-Command -Name bash -ErrorAction SilentlyContinue
+    if ($null -eq $bashCommand) {
+        throw 'bash is required to hash Linux fixture files.'
+    }
+
+    $hashCommand = 'sha256sum -- ' + (ConvertTo-BashSingleQuotedLiteral -Value $Path)
+    $result = Invoke-CommandCapture -Command $bashCommand.Source -Arguments @('-lc', $hashCommand)
+    if ($result.ExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($result.Output)) {
+        throw "Could not hash Linux fixture file '$Path'. Output: $($result.Output)"
+    }
+
+    return (($result.Output.Trim() -split '\s+')[0]).ToLowerInvariant()
+}
+
 function ConvertFrom-ManifestScalar {
     param(
         [Parameter(Mandatory = $true)]
@@ -1152,8 +1172,26 @@ function Test-ManifestLoadAndSchema {
     Test-ResultText -Name "MANIFEST-001 ${Platform}: first tool appears" -Result $canonicalResult -ExpectedText "Checking tool 'yamllint'"
     Test-ResultText -Name "MANIFEST-001 ${Platform}: last tool appears" -Result $canonicalResult -ExpectedText "Checking tool 'codespell'"
 
-    $unsupportedSchema = @'
+    $otherPlatform = if ($Platform -eq 'windows') { 'linux' } else { 'windows' }
+    $validSha256 = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    $schemaTwoManifest = @"
 schema_version: 2
+tools:
+  - id: sample-tool
+    executable: sample-tool
+    installers:
+      ${Platform}:
+        kind: direct_binary
+        url: https://example.invalid/releases/v1.0.0/sample-tool
+        sha256: $validSha256
+      ${otherPlatform}:
+        kind: unavailable
+"@
+    $schemaTwoResult = Invoke-ManifestCase -Platform $Platform -ManifestContent $schemaTwoManifest -DryRun
+    Test-ExitCode -Name "MANIFEST-003 ${Platform}: schema 2 direct artifact exits zero" -Result $schemaTwoResult -ExpectedExitCode 0
+
+    $unsupportedSchema = @'
+schema_version: 3
 tools:
   - id: sample-tool
     executable: sample-tool
@@ -1262,6 +1300,96 @@ tools:
     $invalidYamlResult = Invoke-ManifestCase -Platform $Platform -ManifestContent $invalidYamlShape
     Test-NonzeroExitCode -Name "MANIFEST-015 ${Platform}: invalid YAML shape fails" -Result $invalidYamlResult
     Test-ResultText -Name "MANIFEST-015 ${Platform}: invalid YAML shape diagnostic" -Result $invalidYamlResult -ExpectedText 'Unsupported manifest line'
+
+    $validSha256 = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    $schemaTwoMissingHash = @"
+schema_version: 2
+tools:
+  - id: sample-tool
+    executable: sample-tool
+    installers:
+      ${Platform}:
+        kind: direct_binary
+        url: https://example.invalid/releases/v1.0.0/sample-tool
+      ${otherPlatform}:
+        kind: unavailable
+"@
+    $missingHashResult = Invoke-ManifestCase -Platform $Platform -ManifestContent $schemaTwoMissingHash
+    Test-NonzeroExitCode -Name "SUPPLY-002 ${Platform}: schema 2 missing sha256 fails" -Result $missingHashResult
+    Test-ResultText -Name "SUPPLY-002 ${Platform}: schema 2 missing sha256 diagnostic" -Result $missingHashResult -ExpectedText 'must define sha256'
+
+    $schemaTwoInvalidHash = @"
+schema_version: 2
+tools:
+  - id: sample-tool
+    executable: sample-tool
+    installers:
+      ${Platform}:
+        kind: direct_binary
+        url: https://example.invalid/releases/v1.0.0/sample-tool
+        sha256: not-a-sha
+      ${otherPlatform}:
+        kind: unavailable
+"@
+    $invalidHashResult = Invoke-ManifestCase -Platform $Platform -ManifestContent $schemaTwoInvalidHash
+    Test-NonzeroExitCode -Name "SUPPLY-002 ${Platform}: schema 2 invalid sha256 fails" -Result $invalidHashResult
+    Test-ResultText -Name "SUPPLY-002 ${Platform}: schema 2 invalid sha256 diagnostic" -Result $invalidHashResult -ExpectedText 'invalid sha256'
+
+    $schemaTwoMovingUrl = @"
+schema_version: 2
+tools:
+  - id: sample-tool
+    executable: sample-tool
+    installers:
+      ${Platform}:
+        kind: direct_binary
+        url: https://example.invalid/latest/sample-tool
+        sha256: $validSha256
+      ${otherPlatform}:
+        kind: unavailable
+"@
+    $movingUrlResult = Invoke-ManifestCase -Platform $Platform -ManifestContent $schemaTwoMovingUrl
+    Test-NonzeroExitCode -Name "SUPPLY-003 ${Platform}: schema 2 moving URL fails" -Result $movingUrlResult
+    Test-ResultText -Name "SUPPLY-003 ${Platform}: schema 2 moving URL diagnostic" -Result $movingUrlResult -ExpectedText 'must not use latest'
+
+    $schemaTwoMissingReleaseTag = @"
+schema_version: 2
+tools:
+  - id: sample-tool
+    executable: sample-tool
+    installers:
+      ${Platform}:
+        kind: github_release_asset
+        owner: example
+        repo: sample
+        asset_pattern: sample-tool
+        sha256: $validSha256
+      ${otherPlatform}:
+        kind: unavailable
+"@
+    $missingReleaseTagResult = Invoke-ManifestCase -Platform $Platform -ManifestContent $schemaTwoMissingReleaseTag
+    Test-NonzeroExitCode -Name "SUPPLY-003 ${Platform}: schema 2 missing release_tag fails" -Result $missingReleaseTagResult
+    Test-ResultText -Name "SUPPLY-003 ${Platform}: schema 2 missing release_tag diagnostic" -Result $missingReleaseTagResult -ExpectedText 'must define release_tag'
+
+    $schemaTwoMovingReleaseTag = @"
+schema_version: 2
+tools:
+  - id: sample-tool
+    executable: sample-tool
+    installers:
+      ${Platform}:
+        kind: github_release_asset
+        owner: example
+        repo: sample
+        asset_pattern: sample-tool
+        release_tag: latest
+        sha256: $validSha256
+      ${otherPlatform}:
+        kind: unavailable
+"@
+    $movingReleaseTagResult = Invoke-ManifestCase -Platform $Platform -ManifestContent $schemaTwoMovingReleaseTag
+    Test-NonzeroExitCode -Name "SUPPLY-003 ${Platform}: schema 2 moving release_tag fails" -Result $movingReleaseTagResult
+    Test-ResultText -Name "SUPPLY-003 ${Platform}: schema 2 moving release_tag diagnostic" -Result $movingReleaseTagResult -ExpectedText 'release_tag must not be'
 }
 
 function Test-ManifestPlatformAvailability {
@@ -1488,11 +1616,15 @@ function Get-LinuxDirectBinaryManifestContent {
 
         [string]$ArchiveKind = '',
 
-        [string]$ArchivePath = ''
+        [string]$ArchivePath = '',
+
+        [string]$SchemaVersion = '1',
+
+        [string]$Sha256 = ''
     )
 
     $manifest = @"
-schema_version: 1
+schema_version: $SchemaVersion
 tools:
   - id: sample-tool
     executable: sample-tool
@@ -1513,6 +1645,10 @@ tools:
 
     if (-not [string]::IsNullOrWhiteSpace($ArchivePath)) {
         $manifest += "        archive_path: $ArchivePath`n"
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Sha256)) {
+        $manifest += "        sha256: $Sha256`n"
     }
 
     return $manifest
@@ -2678,6 +2814,54 @@ function Test-LinuxDirectBinaryInstallFlow {
     } finally {
         if ($null -ne $successFixture) {
             Clear-LinuxRuntimeDirectory -Path $successFixture.RuntimePath
+        }
+    }
+
+    $hashSuccessLayout = Initialize-IsolatedScriptLayout -ManifestContent (Get-UnavailableManifestContent)
+    $hashSuccessFixture = $null
+    try {
+        $hashSuccessFixture = Initialize-LinuxDirectBinaryFixture -Layout $hashSuccessLayout
+        $sourceHash = Get-LinuxFileSha256 -Path "$($hashSuccessFixture.RuntimePath)/source/sample-tool"
+        $hashSuccessResult = Invoke-LinuxDirectBinaryFixture `
+            -Layout $hashSuccessLayout `
+            -Fixture $hashSuccessFixture `
+            -ManifestContent (Get-LinuxDirectBinaryManifestContent `
+                -Url $hashSuccessFixture.SourceUrl `
+                -SchemaVersion '2' `
+                -Sha256 $sourceHash)
+        Test-ExitCode -Name 'SUPPLY-002 linux: matching direct_binary sha256 exits zero' -Result $hashSuccessResult -ExpectedExitCode 0
+        Test-ResultText -Name 'SUPPLY-002 linux: matching direct_binary sha256 is verified' -Result $hashSuccessResult -ExpectedText 'Verified SHA256'
+        Test-CheckCondition `
+            -Name 'SUPPLY-002 linux: hash-verified direct binary marker exists' `
+            -Condition (Test-LinuxPathPresence -Path $hashSuccessFixture.MarkerPath) `
+            -FailureDetail 'Installation marker was not written after a verified hash.'
+    } finally {
+        if ($null -ne $hashSuccessFixture) {
+            Clear-LinuxRuntimeDirectory -Path $hashSuccessFixture.RuntimePath
+        }
+    }
+
+    $hashFailureLayout = Initialize-IsolatedScriptLayout -ManifestContent (Get-UnavailableManifestContent)
+    $hashFailureFixture = $null
+    try {
+        $hashFailureFixture = Initialize-LinuxDirectBinaryFixture -Layout $hashFailureLayout
+        $badHash = '0' * 64
+        $hashFailureResult = Invoke-LinuxDirectBinaryFixture `
+            -Layout $hashFailureLayout `
+            -Fixture $hashFailureFixture `
+            -ManifestContent (Get-LinuxDirectBinaryManifestContent `
+                -Url $hashFailureFixture.SourceUrl `
+                -SchemaVersion '2' `
+                -Sha256 $badHash)
+        Test-NonzeroExitCode -Name 'SUPPLY-002 linux: mismatched direct_binary sha256 exits nonzero' -Result $hashFailureResult
+        Test-ResultText -Name 'SUPPLY-002 linux: mismatched direct_binary sha256 diagnostic' -Result $hashFailureResult -ExpectedText 'SHA256 mismatch'
+        Test-CheckCondition `
+            -Name 'SUPPLY-002 linux: hash mismatch writes no marker' `
+            -Condition (-not (Test-LinuxPathPresence -Path $hashFailureFixture.MarkerPath)) `
+            -FailureDetail 'Marker was written after a checksum mismatch.'
+    } finally {
+        if ($null -ne $hashFailureFixture) {
+            Clear-LinuxRuntimeDirectory -Path $hashFailureFixture.RuntimePath
         }
     }
 
@@ -4309,6 +4493,56 @@ function Get-ManifestTool {
     return $tools.ToArray()
 }
 
+function Get-ManifestInstaller {
+    $manifestPath = Get-RepositoryPath -RelativePath 'config/tools.yaml'
+    $installers = [System.Collections.Generic.List[object]]::new()
+    $currentToolId = ''
+    $currentInstaller = $null
+
+    foreach ($rawLine in [IO.File]::ReadLines($manifestPath)) {
+        $line = $rawLine.TrimEnd()
+        if ($line -match '^  - id:\s*(.+)$') {
+            $currentToolId = ConvertFrom-ManifestScalar -Value $matches[1]
+            $currentInstaller = $null
+            continue
+        }
+
+        if ([string]::IsNullOrWhiteSpace($currentToolId)) {
+            continue
+        }
+
+        if ($line -match '^      (windows|linux):\s*$') {
+            $currentInstaller = [ordered]@{
+                ToolId = $currentToolId
+                Platform = $matches[1]
+                Kind = ''
+                Url = ''
+                ReleaseTag = ''
+                Sha256 = ''
+            }
+            $installers.Add([pscustomobject]$currentInstaller)
+            continue
+        }
+
+        if ($null -eq $currentInstaller) {
+            continue
+        }
+
+        if ($line -match '^        (kind|url|release_tag|sha256):\s*(.+)$') {
+            $key = $matches[1]
+            $value = ConvertFrom-ManifestScalar -Value $matches[2]
+            switch ($key) {
+                'kind' { $installers[$installers.Count - 1].Kind = $value }
+                'url' { $installers[$installers.Count - 1].Url = $value }
+                'release_tag' { $installers[$installers.Count - 1].ReleaseTag = $value }
+                'sha256' { $installers[$installers.Count - 1].Sha256 = $value }
+            }
+        }
+    }
+
+    return $installers.ToArray()
+}
+
 function Get-TestPlanToolCoverage {
     $testPlanText = Get-RepositoryText -RelativePath 'TEST_PLAN.md'
     $coverageRows = [System.Collections.Generic.List[object]]::new()
@@ -4684,6 +4918,47 @@ function Test-SupplyChainVerificationContract {
             -Name "SUPPLY-001 strategy documented: $kind" `
             -Condition ($strategies.ContainsKey($kind)) `
             -FailureDetail "Canonical installer kind '$kind' has no verification strategy."
+    }
+
+    $artifactKinds = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($kind in @('appimage_extract', 'direct_binary', 'direct_installer', 'github_release_asset', 'portable_archive', 'source_make')) {
+        $null = $artifactKinds.Add($kind)
+    }
+
+    foreach ($installer in (Get-ManifestInstaller)) {
+        if ([string]::IsNullOrWhiteSpace($installer.Kind) -or -not $artifactKinds.Contains($installer.Kind)) {
+            continue
+        }
+
+        Test-CheckCondition `
+            -Name "SUPPLY-002 checksum present: $($installer.ToolId) $($installer.Platform)" `
+            -Condition ($installer.Sha256 -match '^[0-9a-fA-F]{64}$') `
+            -FailureDetail 'Schema v2 artifact installers must define a 64-character SHA256.'
+
+        $hasFixedSelector = (-not [string]::IsNullOrWhiteSpace($installer.Url)) -or
+            (-not [string]::IsNullOrWhiteSpace($installer.ReleaseTag))
+        Test-CheckCondition `
+            -Name "SUPPLY-003 fixed selector present: $($installer.ToolId) $($installer.Platform)" `
+            -Condition $hasFixedSelector `
+            -FailureDetail 'Artifact installers must pin either url or release_tag.'
+
+        foreach ($selector in @($installer.Url, $installer.ReleaseTag)) {
+            if ([string]::IsNullOrWhiteSpace($selector)) {
+                continue
+            }
+
+            Test-CheckCondition `
+                -Name "SUPPLY-003 no moving selector: $($installer.ToolId) $($installer.Platform)" `
+                -Condition ($selector -notmatch '(^|/)(latest|stable|master)(/|$)') `
+                -FailureDetail "Artifact selector '$selector' must not use latest, stable, or master."
+        }
+
+        if ($installer.Kind -eq 'github_release_asset') {
+            Test-CheckCondition `
+                -Name "SUPPLY-003 release tag present: $($installer.ToolId) $($installer.Platform)" `
+                -Condition (-not [string]::IsNullOrWhiteSpace($installer.ReleaseTag)) `
+                -FailureDetail 'GitHub release assets must pin release_tag.'
+        }
     }
 }
 
