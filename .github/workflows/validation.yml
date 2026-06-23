@@ -17,6 +17,7 @@ env:
   PSSCRIPTANALYZER_VERSION: 1.25.0
   PYTHON_VERSION: 3.13.1
   SHELLCHECK_VERSION: 0.11.0
+  SHELLCHECK_LINUX_X64_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
   SHFMT_VERSION: v3.13.1
   YAMLLINT_VERSION: 1.38.0
 
@@ -180,6 +181,7 @@ jobs:
           shellcheck_base="https://github.com/koalaman/shellcheck/releases/download"
           curl --fail --location --show-error --output "${shellcheck_archive}" \
             "${shellcheck_base}/v${SHELLCHECK_VERSION}/${shellcheck_archive}"
+          printf '%s  %s\n' "${SHELLCHECK_LINUX_X64_SHA256}" "${shellcheck_archive}" | sha256sum --check --strict
           tar -xJf "${shellcheck_archive}"
           sudo install -m 0755 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
           echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
