@@ -126,7 +126,7 @@ not overlap.
 | ID | Scope | Scenario | Expected result |
 | --- | --- | --- | --- |
 | `STATIC-001` | Markdown | Run repository Markdown lint. | All Markdown files pass. |
-| `STATIC-002` | YAML | Run repository YAML lint against `.yamllint`, `.markdownlint-cli2.yaml`, `config/tools.yaml`, and `.github/workflows/validation.yml`. | YAML syntax and style pass. |
+| `STATIC-002` | YAML | Run repository YAML lint against `.yamllint`, `.markdownlint-cli2.yaml`, `config/tools.yaml`, `.github/workflows/validation.yml`, and `.github/dependabot.yml`. | YAML syntax and style pass. |
 | `STATIC-003` | Bash | Run `bash -n scripts/install-tools.sh`. | Bash syntax passes. |
 | `STATIC-004` | Bash | Run `shellcheck scripts/install-tools.sh`. | No ShellCheck findings. |
 | `STATIC-007` | Bash | Run `shfmt -d -i 2 scripts/install-tools.sh` when available. | No formatting diff. |
@@ -447,7 +447,7 @@ changes.
 
 ```powershell
 markdownlint-cli2 "**/*.md"
-yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml .github/workflows/validation.yml
+yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml .github/workflows/validation.yml .github/dependabot.yml
 actionlint .github/workflows/validation.yml
 editorconfig-checker .
 .\tests\test-plan.ps1

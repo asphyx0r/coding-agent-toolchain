@@ -58,7 +58,9 @@ jobs:
 
       - name: Run YAML lint
         shell: pwsh
-        run: yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml .github/workflows/validation.yml
+        run: >-
+          yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml
+          .github/workflows/validation.yml .github/dependabot.yml
 
       - name: Run actionlint
         shell: pwsh
@@ -170,7 +172,9 @@ jobs:
 
       - name: Run YAML lint
         shell: bash
-        run: yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml .github/workflows/validation.yml
+        run: >-
+          yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml
+          .github/workflows/validation.yml .github/dependabot.yml
 
       - name: Run actionlint
         shell: bash

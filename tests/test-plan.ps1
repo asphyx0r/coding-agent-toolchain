@@ -4200,6 +4200,7 @@ function Invoke-YamlFallback {
         Get-RepositoryPath -RelativePath '.markdownlint-cli2.yaml'
         Get-RepositoryPath -RelativePath 'config/tools.yaml'
         Get-RepositoryPath -RelativePath '.github/workflows/validation.yml'
+        Get-RepositoryPath -RelativePath '.github/dependabot.yml'
     )
     $hasError = $false
     foreach ($yamlFile in $yamlFiles) {
@@ -4787,6 +4788,7 @@ function Invoke-StaticCheck {
             '.markdownlint-cli2.yaml'
             'config/tools.yaml'
             '.github/workflows/validation.yml'
+            '.github/dependabot.yml'
         ) `
         -Fallback { Invoke-YamlFallback }
     Invoke-ExternalCheck `
