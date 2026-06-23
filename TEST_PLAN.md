@@ -449,6 +449,7 @@ changes.
 markdownlint-cli2 "**/*.md"
 yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml .github/workflows/validation.yml
 actionlint .github/workflows/validation.yml
+editorconfig-checker .
 .\tests\test-plan.ps1
 ```
 

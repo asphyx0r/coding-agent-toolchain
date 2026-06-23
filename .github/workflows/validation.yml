@@ -43,6 +43,7 @@ jobs:
           Add-Content -Path $env:GITHUB_PATH -Value $goBin
           go install mvdan.cc/sh/v3/cmd/shfmt@latest
           go install github.com/rhysd/actionlint/cmd/actionlint@latest
+          go install github.com/editorconfig-checker/editorconfig-checker/v3/cmd/editorconfig-checker@latest
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module `
             -Name PSScriptAnalyzer `
@@ -62,6 +63,10 @@ jobs:
       - name: Run actionlint
         shell: pwsh
         run: actionlint .github/workflows/validation.yml
+
+      - name: Run EditorConfig check
+        shell: pwsh
+        run: editorconfig-checker .
 
       - name: Check Bash syntax
         shell: pwsh
@@ -157,6 +162,7 @@ jobs:
           echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
           go install mvdan.cc/sh/v3/cmd/shfmt@latest
           go install github.com/rhysd/actionlint/cmd/actionlint@latest
+          go install github.com/editorconfig-checker/editorconfig-checker/v3/cmd/editorconfig-checker@latest
 
       - name: Run Markdown lint
         shell: bash
@@ -169,6 +175,10 @@ jobs:
       - name: Run actionlint
         shell: bash
         run: actionlint .github/workflows/validation.yml
+
+      - name: Run EditorConfig check
+        shell: bash
+        run: editorconfig-checker .
 
       - name: Check Bash syntax
         shell: bash

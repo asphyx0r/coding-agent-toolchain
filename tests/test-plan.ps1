@@ -4790,6 +4790,17 @@ function Invoke-StaticCheck {
         ) `
         -Fallback { Invoke-YamlFallback }
     Invoke-ExternalCheck `
+        -Name 'STATIC-008 EditorConfig check' `
+        -Command 'editorconfig-checker' `
+        -Arguments @('.') `
+        -Fallback {
+            Register-CheckWarning 'EditorConfig fallback is limited to git diff --check.'
+            Invoke-ExternalCheck `
+                -Name 'STATIC-008 fallback whitespace check' `
+                -Command 'git' `
+                -Arguments @('diff', '--check')
+        }
+    Invoke-ExternalCheck `
         -Name 'STATIC-003 Bash syntax' `
         -Command 'bash' `
         -Arguments @('-n', 'scripts/install-tools.sh')

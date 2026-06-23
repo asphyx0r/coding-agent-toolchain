@@ -17,9 +17,13 @@ max_line_length = 120
 indent_style = space
 indent_size = 2
 
-[*.{md,mdx}]
+[.yamllint]
 indent_style = space
 indent_size = 2
+
+[*.{md,mdx}]
+indent_style = space
+indent_size = 1
 trim_trailing_whitespace = false
 max_line_length = off
 
@@ -59,6 +63,11 @@ indent_size = 2
 [*.ps1]
 indent_style = space
 indent_size = 4
+max_line_length = off
+
+[tests/test-plan.ps1]
+indent_style = space
+indent_size = 2
 max_line_length = off
 
 [*.{nfo,ans,asc,txt}]
