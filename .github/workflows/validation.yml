@@ -7,6 +7,16 @@ name: Repository Validation
 permissions:
   contents: read
 
+env:
+  ACTIONLINT_VERSION: v1.7.12
+  CODESPELL_VERSION: 2.4.2
+  EDITORCONFIG_CHECKER_VERSION: v3.7.0
+  MARKDOWNLINT_CLI2_VERSION: 0.22.1
+  PSSCRIPTANALYZER_VERSION: 1.25.0
+  SHELLCHECK_VERSION: 0.11.0
+  SHFMT_VERSION: v3.13.1
+  YAMLLINT_VERSION: 1.38.0
+
 jobs:
   validate:
     name: Validate repository
@@ -35,18 +45,21 @@ jobs:
       - name: Install validation tools
         shell: pwsh
         run: |
-          npm install --global markdownlint-cli2
-          python -m pip install --upgrade pip
-          python -m pip install yamllint codespell
-          choco install shellcheck --yes --no-progress
+          npm install --global "markdownlint-cli2@$env:MARKDOWNLINT_CLI2_VERSION"
+          python -m pip install `
+            "yamllint==$env:YAMLLINT_VERSION" `
+            "codespell==$env:CODESPELL_VERSION"
+          choco install shellcheck --version="$env:SHELLCHECK_VERSION" --yes --no-progress
           $goBin = Join-Path (go env GOPATH) "bin"
           Add-Content -Path $env:GITHUB_PATH -Value $goBin
-          go install mvdan.cc/sh/v3/cmd/shfmt@latest
-          go install github.com/rhysd/actionlint/cmd/actionlint@latest
-          go install github.com/editorconfig-checker/editorconfig-checker/v3/cmd/editorconfig-checker@latest
+          go install "mvdan.cc/sh/v3/cmd/shfmt@$env:SHFMT_VERSION"
+          go install "github.com/rhysd/actionlint/cmd/actionlint@$env:ACTIONLINT_VERSION"
+          $editorConfigChecker = "github.com/editorconfig-checker/editorconfig-checker/v3/cmd/editorconfig-checker"
+          go install "$editorConfigChecker@$env:EDITORCONFIG_CHECKER_VERSION"
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module `
             -Name PSScriptAnalyzer `
+            -RequiredVersion $env:PSSCRIPTANALYZER_VERSION `
             -Scope CurrentUser `
             -Force `
             -AllowClobber `
@@ -156,15 +169,21 @@ jobs:
       - name: Install validation tools
         shell: bash
         run: |
-          npm install --global markdownlint-cli2
-          python -m pip install --upgrade pip
-          python -m pip install yamllint codespell
-          sudo apt-get update
-          sudo apt-get install --yes shellcheck
+          npm install --global "markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION}"
+          python -m pip install \
+            "yamllint==${YAMLLINT_VERSION}" \
+            "codespell==${CODESPELL_VERSION}"
+          shellcheck_archive="shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          shellcheck_base="https://github.com/koalaman/shellcheck/releases/download"
+          curl --fail --location --show-error --output "${shellcheck_archive}" \
+            "${shellcheck_base}/v${SHELLCHECK_VERSION}/${shellcheck_archive}"
+          tar -xJf "${shellcheck_archive}"
+          sudo install -m 0755 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
           echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
-          go install mvdan.cc/sh/v3/cmd/shfmt@latest
-          go install github.com/rhysd/actionlint/cmd/actionlint@latest
-          go install github.com/editorconfig-checker/editorconfig-checker/v3/cmd/editorconfig-checker@latest
+          go install "mvdan.cc/sh/v3/cmd/shfmt@${SHFMT_VERSION}"
+          go install "github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}"
+          editorconfig_checker="github.com/editorconfig-checker/editorconfig-checker/v3/cmd/editorconfig-checker"
+          go install "${editorconfig_checker}@${EDITORCONFIG_CHECKER_VERSION}"
 
       - name: Run Markdown lint
         shell: bash

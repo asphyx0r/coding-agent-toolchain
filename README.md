@@ -292,10 +292,10 @@ editorconfig-checker .
 ```
 
 The GitHub Actions validation workflow pins action references to full commit
-SHAs with reviewed version comments, while installing current validation tools
-from npm, pip, Go, Chocolatey, and PowerShell Gallery. Treat the installed
-tool versions as a moving validation gate, not as a reproducible pinned release
-build.
+SHAs with reviewed version comments and installs explicit validation tool
+versions from npm, pip, Go, Chocolatey, GitHub releases, and PowerShell
+Gallery. Treat that workflow as a pinned repository validation gate, while
+the installer manifest remains a separate bootstrapping trust boundary.
 
 The complete repository test plan is documented in
 [`TEST_PLAN.md`](TEST_PLAN.md). It defines the required CLI, manifest, installer,
