@@ -177,13 +177,17 @@ jobs:
           python -m pip install \
             "yamllint==${YAMLLINT_VERSION}" \
             "codespell==${CODESPELL_VERSION}"
-          shellcheck_archive="shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
           shellcheck_base="https://github.com/koalaman/shellcheck/releases/download"
-          curl --fail --location --show-error --output "${shellcheck_archive}" \
+          shellcheck_archive="shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          shellcheck_workdir="${RUNNER_TEMP}/shellcheck-${SHELLCHECK_VERSION}"
+          shellcheck_path="${shellcheck_workdir}/${shellcheck_archive}"
+          shellcheck_bin="${shellcheck_workdir}/shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+          mkdir -p "${shellcheck_workdir}"
+          curl --fail --location --show-error --output "${shellcheck_path}" \
             "${shellcheck_base}/v${SHELLCHECK_VERSION}/${shellcheck_archive}"
-          printf '%s  %s\n' "${SHELLCHECK_LINUX_X64_SHA256}" "${shellcheck_archive}" | sha256sum --check --strict
-          tar -xJf "${shellcheck_archive}"
-          sudo install -m 0755 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          printf '%s  %s\n' "${SHELLCHECK_LINUX_X64_SHA256}" "${shellcheck_path}" | sha256sum --check --strict
+          tar -xJf "${shellcheck_path}" -C "${shellcheck_workdir}"
+          sudo install -m 0755 "${shellcheck_bin}" /usr/local/bin/shellcheck
           echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
           go install "mvdan.cc/sh/v3/cmd/shfmt@${SHFMT_VERSION}"
           go install "github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}"
