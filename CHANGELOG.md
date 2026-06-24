@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 | References | Description | Author(s) |
 | --- | --- | --- |
+| d38da2a | test: pin shfmt validation | asphyx |
 | 5fb1705 | style(sh): satisfy shfmt v3.13 | asphyx |
 
 ## v1.5.1
