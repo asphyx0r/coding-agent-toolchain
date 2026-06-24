@@ -272,6 +272,10 @@ and before extraction, execution, or publication.
 Package-manager installers still resolve upstream package channels. Treat those
 package managers as trusted inputs when running the installers; the direct
 artifact downloads controlled by the canonical manifest are checksum verified.
+For `pip`, `npm_global`, `powershell_gallery`, and `conda_forge`, that
+`trusted_upstream` boundary is deliberately floating: future installs can
+resolve newer package-manager content without a repository change. Review those
+package names and upstream channels periodically when maintaining the manifest.
 
 ## Verification
 
