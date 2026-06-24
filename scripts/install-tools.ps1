@@ -168,37 +168,46 @@ function Resolve-PhysicalDirectory {
         [string]$MissingMessage
     )
 
-    $normalizedPath = [IO.Path]::GetFullPath($Path)
-    if (-not (Test-Path -LiteralPath $normalizedPath -PathType Container)) {
+    if ([string]::IsNullOrWhiteSpace($Path)) {
         throw $MissingMessage
     }
 
-    $item = Get-Item -LiteralPath $normalizedPath -Force
-    $targetProperty = $item.PSObject.Properties['Target']
-    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -and $null -ne $targetProperty) {
+    $trimChars = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+    $candidatePath = [IO.Path]::GetFullPath($Path)
+    $visitedPaths = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+
+    while ($true) {
+        if (-not (Test-Path -LiteralPath $candidatePath -PathType Container)) {
+            throw $MissingMessage
+        }
+
+        $item = Get-Item -LiteralPath $candidatePath -Force
+        $normalizedItemPath = [IO.Path]::GetFullPath($item.FullName).TrimEnd($trimChars)
+        if (-not $visitedPaths.Add($normalizedItemPath)) {
+            throw $MissingMessage
+        }
+
+        $targetProperty = $item.PSObject.Properties['Target']
+        if (-not (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -and $null -ne $targetProperty)) {
+            return $normalizedItemPath
+        }
+
         $targetValues = @(
             @($targetProperty.Value) | Where-Object {
                 -not [string]::IsNullOrWhiteSpace([string]$_)
             }
         )
-        if ($targetValues.Count -gt 0) {
-            $targetPath = [string]$targetValues[0]
-            if (-not [IO.Path]::IsPathRooted($targetPath)) {
-                $targetPath = Join-Path -Path $item.Parent.FullName -ChildPath $targetPath
-            }
-
-            $normalizedTargetPath = [IO.Path]::GetFullPath($targetPath)
-            $targetExists = Test-Path -LiteralPath $normalizedTargetPath -PathType Container
-            if (-not $targetExists) {
-                throw $MissingMessage
-            }
-
-            $item = Get-Item -LiteralPath $normalizedTargetPath -Force
+        if ($targetValues.Count -eq 0) {
+            return $normalizedItemPath
         }
-    }
 
-    $trimChars = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
-    return $item.FullName.TrimEnd($trimChars)
+        $targetPath = [string]$targetValues[0]
+        if (-not [IO.Path]::IsPathRooted($targetPath)) {
+            $targetPath = Join-Path -Path $item.Parent.FullName -ChildPath $targetPath
+        }
+
+        $candidatePath = [IO.Path]::GetFullPath($targetPath)
+    }
 }
 
 function Get-UserProfileRoot {
@@ -2256,10 +2265,9 @@ function Get-PathVerificationStatus {
 }
 
 function Assert-RemoveModeAllowed {
-    $profileRoot = (Get-UserProfileRoot)
-    if ([string]::IsNullOrWhiteSpace($profileRoot) -or -not (Test-Path -LiteralPath $profileRoot -PathType Container)) {
-        throw '--remove requires a valid current user profile directory.'
-    }
+    $null = Resolve-PhysicalDirectory `
+        -Path (Get-UserProfileRoot) `
+        -MissingMessage '--remove requires a valid current user profile directory.'
 }
 
 function Resolve-ExistingDirectoryPath {
@@ -2268,11 +2276,9 @@ function Resolve-ExistingDirectoryPath {
         [string]$Directory
     )
 
-    if (-not (Test-Path -LiteralPath $Directory -PathType Container)) {
-        throw 'Managed installation directory does not exist.'
-    }
-
-    return (Resolve-Path -LiteralPath $Directory).ProviderPath
+    return Resolve-PhysicalDirectory `
+        -Path $Directory `
+        -MissingMessage 'Managed installation directory does not exist.'
 }
 
 function Test-SameExistingDirectory {
@@ -2326,7 +2332,9 @@ function Resolve-SafeRemovalDirectory {
 
     $target = Resolve-ExistingDirectoryPath -Directory $Directory
     $trimChars = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
-    $profileRoot = [IO.Path]::GetFullPath((Get-UserProfileRoot)).TrimEnd($trimChars)
+    $profileRoot = Resolve-PhysicalDirectory `
+        -Path (Get-UserProfileRoot) `
+        -MissingMessage '--remove requires a valid current user profile directory.'
     $normalizedTarget = [IO.Path]::GetFullPath($target).TrimEnd($trimChars)
 
     $isProfileRoot = [string]::Equals($normalizedTarget, $profileRoot, [StringComparison]::OrdinalIgnoreCase)

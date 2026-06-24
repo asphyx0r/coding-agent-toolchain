@@ -4204,6 +4204,72 @@ function Test-WindowsRemoveRefusal {
         -Name 'REMOVE-007 windows: shared directory remains' `
         -Condition (Test-Path -LiteralPath $sharedRoot) `
         -FailureDetail 'Shared directory was removed.'
+
+    $physicalEscapeLayout = Initialize-IsolatedScriptLayout -ManifestContent (Get-DirectBinaryManifestContent)
+    $physicalEscapePrefix = Initialize-TemporaryPrefixDirectory
+    $physicalEscapeExternalRoot = Join-Path -Path $RepoRoot -ChildPath '.test-runtime'
+    $physicalEscapeExternalPrefix = Join-Path `
+        -Path $physicalEscapeExternalRoot `
+        -ChildPath ('physical-escape-' + [guid]::NewGuid().ToString('N'))
+    $trimCharacters = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+    $profileRootPath = [IO.Path]::GetFullPath([Environment]::GetFolderPath('UserProfile')).TrimEnd($trimCharacters)
+    $externalPrefixPath = [IO.Path]::GetFullPath($physicalEscapeExternalPrefix).TrimEnd($trimCharacters)
+    if ($externalPrefixPath.StartsWith("$profileRootPath$([IO.Path]::DirectorySeparatorChar)", [StringComparison]::OrdinalIgnoreCase)) {
+        Register-CheckWarning 'SAFETY-007 windows skipped because the repository is under the user profile.'
+        return
+    }
+
+    New-Item -ItemType Directory -Path $physicalEscapeExternalPrefix -Force | Out-Null
+    $physicalEscapeExternalDirectory = Initialize-WindowsMarkedToolDirectory -PrefixPath $physicalEscapeExternalPrefix
+    $physicalEscapeToolRoot = Join-Path -Path $physicalEscapePrefix -ChildPath 'coding-agent-toolchain'
+    $physicalEscapeLink = Join-Path -Path $physicalEscapeToolRoot -ChildPath 'sample-tool'
+    New-Item -ItemType Directory -Path $physicalEscapeToolRoot -Force | Out-Null
+    try {
+        New-Item `
+            -ItemType Junction `
+            -Path $physicalEscapeLink `
+            -Target $physicalEscapeExternalDirectory `
+            -ErrorAction Stop |
+            Out-Null
+    } catch {
+        Register-CheckWarning "SAFETY-007 windows skipped because link setup failed: $($_.Exception.Message)"
+        return
+    }
+
+    try {
+        $physicalEscapeResult = Invoke-IsolatedToolScript `
+            -Platform 'windows' `
+            -Layout $physicalEscapeLayout `
+            -Arguments @('-r', '-c', $physicalEscapeLayout.ManifestPath, '-p', $physicalEscapePrefix)
+        Test-ExitCode `
+            -Name 'SAFETY-007 windows: physical removal escape exits zero' `
+            -Result $physicalEscapeResult `
+            -ExpectedExitCode 0
+        Test-ResultText `
+            -Name 'SAFETY-007 windows: physical removal escape refused' `
+            -Result $physicalEscapeResult `
+            -ExpectedText 'outside the current user profile'
+        Test-CheckCondition `
+            -Name 'SAFETY-007 windows: escaped target remains' `
+            -Condition (Test-Path -LiteralPath $physicalEscapeExternalDirectory) `
+            -FailureDetail 'Physical removal escape target was removed.'
+    } finally {
+        if (Test-Path -LiteralPath $physicalEscapeLink) {
+            try {
+                [IO.Directory]::Delete($physicalEscapeLink)
+            } catch {
+                Register-CheckWarning "Could not remove SAFETY-007 junction '$physicalEscapeLink': $($_.Exception.Message)"
+            }
+        }
+
+        if (Test-Path -LiteralPath $physicalEscapeExternalPrefix) {
+            Remove-Item -LiteralPath $physicalEscapeExternalPrefix -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        if ((Test-Path -LiteralPath $physicalEscapeExternalRoot) -and
+            (Get-ChildItem -LiteralPath $physicalEscapeExternalRoot -Force | Measure-Object).Count -eq 0) {
+            Remove-Item -LiteralPath $physicalEscapeExternalRoot -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 function Test-LinuxRemoveUnmanagedCommand {
