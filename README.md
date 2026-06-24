@@ -300,6 +300,10 @@ SHAs with reviewed version comments and installs explicit validation tool
 versions from npm, pip, Go, GitHub releases, and PowerShell
 Gallery. Treat that workflow as a pinned repository validation gate, while
 the installer manifest remains a separate bootstrapping trust boundary.
+Dependabot monitors the GitHub Actions ecosystem entries in
+`.github/dependabot.yml`; it does not review the validation tool versions or
+SHA256 values pinned in the workflow environment. Review those workflow pins
+and hashes manually during CI maintenance or release-readiness work.
 
 The complete repository test plan is documented in
 [`TEST_PLAN.md`](TEST_PLAN.md). It defines the required CLI, manifest, installer,
