@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.5.2
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| 5fb1705 | style(sh): satisfy shfmt v3.13 | asphyx |
+
 ## v1.5.1
 
 | References | Description | Author(s) |
