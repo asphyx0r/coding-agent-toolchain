@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.5.1
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| 96c2ee7 | docs(ci): document tool pin reviews | asphyx |
+| bf2ab17 | docs: clarify installer trust | asphyx |
+| 9e6c17e | fix(windows): resolve physical paths | asphyx |
+| bcbbe55 | fix: align version fallbacks | asphyx |
+| 428689c | style(sh): apply shfmt wrapping | asphyx |
+| a5b4ebe | ci: install shellcheck from release | asphyx |
+| c9ad393 | ci: expose shellcheck on windows | asphyx |
+| 8945ae7 | ci: fix validation checks | asphyx |
+
 ## v1.5.0
 
 <!-- markdownlint-disable MD044 -->
