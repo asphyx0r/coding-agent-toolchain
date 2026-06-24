@@ -1058,7 +1058,7 @@ add_installer_path_entries() {
       return
     elif [[ "${installer_kinds[index]}" == "conda_forge" ]]; then
       bin_path="$(install_directory "${index}")/bin"
-    elif [[ "${installer_kinds[index]}" == "direct_binary" || "${installer_kinds[index]}" == "github_release_asset" ||
+    elif [[ "${installer_kinds[index]}" == "direct_binary" || "${installer_kinds[index]}" == "github_release_asset" || \
       "${installer_kinds[index]}" == "uv_tool" || "${installer_kinds[index]}" == "appimage_extract" ]]; then
       bin_path="$(tool_command_dir "${index}")"
     else
@@ -2749,7 +2749,7 @@ validate_xdg_data_home() {
   }
   xdg_physical="$(normalize_absolute_path_text "${xdg_physical}")"
 
-  if [[ "${xdg_physical}" == "${home_physical}" ||
+  if [[ "${xdg_physical}" == "${home_physical}" || \
     "${xdg_physical}" == "${home_physical}/"* ]]; then
     return 0
   fi
@@ -2952,7 +2952,7 @@ main() {
   local display_value
   for index in "${!tool_ids[@]}"; do
     display_value="${versions[index]}"
-    if [[ ("${statuses[index]}" == "Failed" || "${statuses[index]}" == "Missing" ||
+    if [[ ("${statuses[index]}" == "Failed" || "${statuses[index]}" == "Missing" || \
       "${statuses[index]}" == "Skipped") && -n "${details[index]}" ]]; then
       display_value="${details[index]}"
     fi
