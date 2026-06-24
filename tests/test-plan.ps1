@@ -5149,8 +5149,15 @@ function Invoke-StaticCheck {
         -Arguments @('-n', 'scripts/install-tools.sh')
     Invoke-ExternalCheck `
         -Name 'STATIC-007 shfmt' `
-        -Command 'shfmt' `
-        -Arguments @('-d', '-i', '2', 'scripts/install-tools.sh') `
+        -Command 'go' `
+        -Arguments @(
+            'run'
+            'mvdan.cc/sh/v3/cmd/shfmt@v3.13.1'
+            '-d'
+            '-i'
+            '2'
+            'scripts/install-tools.sh'
+        ) `
         -Fallback {
             Register-CheckWarning 'shfmt fallback is limited to preserving the current Bash style.'
         }
