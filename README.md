@@ -353,7 +353,7 @@ reporting.
 
 Scripts report `git describe --tags --long --always --dirty` when they run
 from a Git checkout. If Git or `.git` metadata is unavailable, they fall back
-to `v1.5.0`. `CHANGELOG.md` uses tag sections for release entries.
+to `v1.5.2`. `CHANGELOG.md` uses tag sections for release entries.
 
 ## Contributing
 

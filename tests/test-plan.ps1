@@ -792,6 +792,10 @@ function Test-CliHelp {
             -Arguments @($helpOption)
         Test-ExitCode -Name "CLI-001 ${Platform}: $helpOption exits zero" -Result $result -ExpectedExitCode 0
         Test-ResultText -Name "CLI-001 ${Platform}: $helpOption shows version" -Result $result -ExpectedText 'Coding Agent Toolchain'
+        Test-ResultText `
+            -Name "CLI-001 ${Platform}: $helpOption shows fallback version" `
+            -Result $result `
+            -ExpectedText "v1.5.2"
         foreach ($option in @('--config', '--verbose', '--dry-run', '--remove', '--check-path', '--prefix', '--help')) {
             Test-ResultText -Name "CLI-001 ${Platform}: $helpOption lists $option" -Result $result -ExpectedText $option
         }
