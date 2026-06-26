@@ -269,13 +269,16 @@ release URLs or `release_tag` values and declare a SHA256 checksum. The
 Windows and Linux installers verify that checksum immediately after download
 and before extraction, execution, or publication.
 
-Package-manager installers still resolve upstream package channels. Treat those
-package managers as trusted inputs when running the installers; the direct
-artifact downloads controlled by the canonical manifest are checksum verified.
-For `pip`, `npm_global`, `powershell_gallery`, and `conda_forge`, that
-`trusted_upstream` boundary is deliberately floating: future installs can
-resolve newer package-manager content without a repository change. Review those
-package names and upstream channels periodically when maintaining the manifest.
+Package-manager installers and Linux bootstrap runtimes still resolve upstream
+package channels. Treat those package managers and runtimes as trusted inputs
+when running the installers; the direct artifact downloads controlled by the
+canonical manifest are checksum verified. For `pip`, `npm_global`,
+`powershell_gallery`, `conda_forge`, `linux_node_runtime`, and
+`linux_micromamba_runtime`, that `trusted_upstream` boundary is deliberately
+floating: future installs can resolve newer package-manager or bootstrap
+runtime content without a repository change. Review those package names,
+upstream channels, and runtime sources periodically when maintaining the
+manifest.
 
 ## Verification
 

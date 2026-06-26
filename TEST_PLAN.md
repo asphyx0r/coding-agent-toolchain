@@ -152,6 +152,8 @@ Accepted strategies are `trusted_upstream`, `checksum`, and `signature`.
 | `direct_binary` | `checksum` |
 | `direct_installer` | `checksum` |
 | `github_release_asset` | `checksum` |
+| `linux_micromamba_runtime` | `trusted_upstream` |
+| `linux_node_runtime` | `trusted_upstream` |
 | `npm_global` | `trusted_upstream` |
 | `pip` | `trusted_upstream` |
 | `portable_archive` | `checksum` |

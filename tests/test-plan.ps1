@@ -4986,6 +4986,15 @@ function Test-SupplyChainVerificationContract {
             -FailureDetail "Canonical installer kind '$kind' has no verification strategy."
     }
 
+    foreach ($runtimeKind in @("linux_node_runtime", "linux_micromamba_runtime")) {
+        $isTrustedBootstrapRuntime = $strategies.ContainsKey($runtimeKind) -and
+            $strategies[$runtimeKind] -eq "trusted_upstream"
+        Test-CheckCondition `
+            -Name "SUPPLY-001 bootstrap strategy documented: $runtimeKind" `
+            -Condition $isTrustedBootstrapRuntime `
+            -FailureDetail "Bootstrap runtime $runtimeKind must be documented as trusted_upstream."
+    }
+
     $artifactKinds = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     foreach ($kind in @('appimage_extract', 'direct_binary', 'direct_installer', 'github_release_asset', 'portable_archive', 'source_make')) {
         $null = $artifactKinds.Add($kind)

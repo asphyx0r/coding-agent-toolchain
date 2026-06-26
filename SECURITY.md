@@ -13,13 +13,14 @@ direct artifacts. Those artifact entries pin fixed release URLs or
 installers verify immediately after download.
 
 Package-manager channels such as `pip`, `npm_global`, `powershell_gallery`,
-and `conda_forge` still rely on their upstream package managers. The
-`trusted_upstream` strategy records that explicit trust decision until a
-stronger package-manager verification model is added for that kind.
-This boundary is deliberately floating: future installs can resolve newer
-upstream package content without a repository change. Review package names and
-upstream channels periodically, especially before release or manifest
-maintenance work.
+and `conda_forge`, plus the Linux bootstrap runtimes `linux_node_runtime` and
+`linux_micromamba_runtime`, still rely on their upstream package managers or
+runtime providers. The `trusted_upstream` strategy records that explicit trust
+decision until a stronger verification model is added for that kind. This
+boundary is deliberately floating: future installs can resolve newer upstream
+package or runtime content without a repository change. Review package names,
+upstream channels, and runtime sources periodically, especially before release
+or manifest maintenance work.
 
 Treat package managers as trusted inputs before running an install. Direct
 release assets and direct download URLs in the canonical manifest are checksum
