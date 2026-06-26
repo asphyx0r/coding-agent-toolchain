@@ -295,6 +295,8 @@ markdownlint-cli2 "**/*.md"
 yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml .github/workflows/validation.yml .github/dependabot.yml
 actionlint .github/workflows/validation.yml
 editorconfig-checker .
+node --check commitlint.config.cjs
+codespell .
 .\tests\test-plan.ps1
 ```
 

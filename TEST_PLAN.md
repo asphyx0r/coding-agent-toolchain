@@ -33,7 +33,7 @@ class, marked invalid by contract, or marked not applicable with a reason.
 | Manifest schema and tool list | [`config/tools.yaml`](config/tools.yaml) | Manifest validation, each canonical tool, each declared installer kind |
 | Windows implementation | [`scripts/install-tools.ps1`](scripts/install-tools.ps1) | PowerShell parsing, installer dispatch, version checks, removal safety |
 | Linux implementation | [`scripts/install-tools.sh`](scripts/install-tools.sh) | Bash parsing, installer dispatch, version checks, removal safety |
-| Repository quality gates | [`README.md`](README.md#verification) | Markdown, YAML, Bash, ShellCheck, PowerShell parser, PSScriptAnalyzer |
+| Repository quality gates | [`README.md`](README.md#verification) | Markdown, YAML, Bash, ShellCheck, PowerShell parser, PSScriptAnalyzer, JavaScript config syntax, spelling |
 
 ## Completion Criteria
 
@@ -132,6 +132,8 @@ not overlap.
 | `STATIC-007` | Bash | Run `shfmt -d -i 2 scripts/install-tools.sh` when available. | No formatting diff. |
 | `STATIC-005` | PowerShell | Parse PowerShell scripts with the PowerShell parser. | No parse errors. |
 | `STATIC-006` | PowerShell | Run `Invoke-ScriptAnalyzer` against PowerShell scripts when available. | No analyzer findings. |
+| `STATIC-009` | JavaScript | Run `node --check commitlint.config.cjs`. | JavaScript config syntax passes. |
+| `STATIC-010` | Spelling | Run `codespell .`. | No spelling findings. |
 
 ### Supply Chain Trust Tests
 
@@ -454,6 +456,8 @@ markdownlint-cli2 "**/*.md"
 yamllint .yamllint .markdownlint-cli2.yaml config/tools.yaml .github/workflows/validation.yml .github/dependabot.yml
 actionlint .github/workflows/validation.yml
 editorconfig-checker .
+node --check commitlint.config.cjs
+codespell .
 .\tests\test-plan.ps1
 ```
 

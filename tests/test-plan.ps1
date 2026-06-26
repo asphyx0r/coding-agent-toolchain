@@ -5187,6 +5187,14 @@ function Invoke-StaticCheck {
         }
     Invoke-PowerShellParserCheck
     Invoke-ScriptAnalyzerCheck
+    Invoke-ExternalCheck `
+        -Name "STATIC-009 JavaScript syntax" `
+        -Command "node" `
+        -Arguments @("--check", "commitlint.config.cjs")
+    Invoke-ExternalCheck `
+        -Name "STATIC-010 codespell" `
+        -Command "codespell" `
+        -Arguments @(".")
 }
 
 function Invoke-TestPlanCheck {
