@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.5.3
+
+| References | Description | Author(s) |
+| --- | --- | --- |
+| 38ace3c | test: align local validation | asphyx |
+| 0f41667 | fix: align version fallback | asphyx |
+| 1ac81b3 | docs: document bootstrap trust | asphyx |
+
 ## v1.5.2
 
 | References | Description | Author(s) |
